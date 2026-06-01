@@ -16,6 +16,7 @@ class ConfirmRecognitionIn(BaseModel):
     session_id: int | None = None
     student_id: int | None = None
     camera_id: int | None = None
+    note: str | None = None
 
 
 @router.post("/image")
@@ -62,6 +63,7 @@ def confirm_recognition(payload: ConfirmRecognitionIn, db: Session = Depends(get
         session_id=payload.session_id,
         student_id=payload.student_id,
         camera_id=payload.camera_id,
+        note=payload.note,
     )
 
 

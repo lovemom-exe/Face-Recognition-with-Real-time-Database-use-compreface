@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..attendance_services import AttendanceLogService, AttendanceSessionService, BusinessRuleError
 from ..database import get_db
-from ..models import AttendanceLog, AttendanceSession, Student
-from ..serializers import attendance_log_to_dict, attendance_session_to_dict, student_to_dict
+from ..models import AttendanceLog, AttendanceSession
+from ..serializers import attendance_log_to_dict, attendance_session_to_dict
 
 router = APIRouter(prefix="/api/attendance-sessions", tags=["attendance sessions"])
 
@@ -29,6 +30,18 @@ class AttendanceSessionUpdate(BaseModel):
     end_time: datetime | None = None
     late_threshold_minutes: int | None = None
     status: str | None = None
+
+
+class ManualAttendanceIn(BaseModel):
+    student_id: int
+    status: str | None = "MANUAL"
+    note: str = ""
+    actor_id: int | None = None
+    camera_id: int | None = None
+
+
+def _raise_business_error(exc: BusinessRuleError) -> None:
+    raise HTTPException(status_code=exc.status_code, detail=exc.message)
 
 
 @router.get("")
@@ -69,7 +82,11 @@ def update_session(session_id: int, payload: AttendanceSessionUpdate, db: Sessio
     item = db.get(AttendanceSession, session_id)
     if not item:
         raise HTTPException(status_code=404, detail="Attendance session not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    next_status = updates.pop("status", None)
+    if next_status is not None and next_status != item.status:
+        raise HTTPException(status_code=400, detail="Vui lòng dùng endpoint lifecycle để đổi trạng thái buổi điểm danh.")
+    for key, value in updates.items():
         setattr(item, key, value)
     db.commit()
     db.refresh(item)
@@ -78,25 +95,42 @@ def update_session(session_id: int, payload: AttendanceSessionUpdate, db: Sessio
 
 @router.post("/{session_id}/open")
 def open_session(session_id: int, db: Session = Depends(get_db)):
-    item = db.get(AttendanceSession, session_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Attendance session not found")
-    item.status = "OPEN"
-    db.commit()
-    db.refresh(item)
-    return attendance_session_to_dict(item)
+    try:
+        return AttendanceSessionService(db).open(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
 
 
 @router.post("/{session_id}/close")
 def close_session(session_id: int, db: Session = Depends(get_db)):
-    item = db.get(AttendanceSession, session_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Attendance session not found")
-    item.status = "CLOSED"
-    item.end_time = item.end_time or datetime.utcnow()
-    db.commit()
-    db.refresh(item)
-    return attendance_session_to_dict(item)
+    try:
+        return AttendanceSessionService(db).close(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.post("/{session_id}/lock")
+def lock_session(session_id: int, db: Session = Depends(get_db)):
+    try:
+        return AttendanceSessionService(db).lock(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.post("/{session_id}/reopen")
+def reopen_session(session_id: int, db: Session = Depends(get_db)):
+    try:
+        return AttendanceSessionService(db).reopen(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.post("/{session_id}/cancel")
+def cancel_session(session_id: int, db: Session = Depends(get_db)):
+    try:
+        return AttendanceSessionService(db).cancel(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
 
 
 @router.get("/{session_id}/results")
@@ -112,23 +146,30 @@ def session_results(session_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{session_id}/roster")
 def session_roster(session_id: int, db: Session = Depends(get_db)):
-    item = db.get(AttendanceSession, session_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Attendance session not found")
-    class_id = item.class_course.class_id
-    logs = {
-        log.student_id: log
-        for log in db.query(AttendanceLog).filter(AttendanceLog.session_id == session_id).all()
-    }
-    students = db.query(Student).filter(Student.class_id == class_id, Student.status == "ACTIVE").order_by(Student.full_name).all()
-    return {
-        "session": attendance_session_to_dict(item),
-        "students": [
-            {
-                **student_to_dict(student),
-                "attendance_log": attendance_log_to_dict(logs[student.id]) if student.id in logs else None,
-                "attendance_status": logs[student.id].status if student.id in logs else "ABSENT",
-            }
-            for student in students
-        ],
-    }
+    try:
+        return AttendanceSessionService(db).roster(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.post("/{session_id}/manual-attendance")
+def manual_attendance(session_id: int, payload: ManualAttendanceIn, db: Session = Depends(get_db)):
+    try:
+        return AttendanceLogService(db).manual_attendance(
+            session_id=session_id,
+            student_id=payload.student_id,
+            status=payload.status,
+            note=payload.note,
+            actor_id=payload.actor_id,
+            camera_id=payload.camera_id,
+        )
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.get("/{session_id}/audits")
+def session_audits(session_id: int, db: Session = Depends(get_db)):
+    try:
+        return AttendanceSessionService(db).audits(session_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)

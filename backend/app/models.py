@@ -119,7 +119,7 @@ class AttendanceSession(Base):
     end_time: Mapped[datetime | None] = mapped_column(DateTime)
     late_threshold_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
     status: Mapped[str] = mapped_column(
-        Enum("DRAFT", "OPEN", "CLOSED", "CANCELLED", name="attendance_session_status"),
+        Enum("DRAFT", "OPEN", "CLOSED", "LOCKED", "CANCELLED", name="attendance_session_status"),
         nullable=False,
         default="DRAFT",
     )
@@ -217,9 +217,23 @@ class AttendanceLog(Base):
     recognition_event_id: Mapped[int | None] = mapped_column(ForeignKey("recognition_events.id", ondelete="SET NULL"), unique=True)
     check_in_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
     status: Mapped[str] = mapped_column(
-        Enum("ON_TIME", "LATE", "MANUAL", "EXCUSED", name="attendance_log_status"),
+        Enum(
+            "ON_TIME",
+            "LATE",
+            "ABSENT",
+            "EXCUSED",
+            "MANUAL",
+            "PENDING_REVIEW",
+            "INVALID",
+            name="attendance_log_status",
+        ),
         nullable=False,
         default="ON_TIME",
+    )
+    method: Mapped[str] = mapped_column(
+        Enum("FACE", "MANUAL", "AUTO_ABSENT", name="attendance_log_method"),
+        nullable=False,
+        default="FACE",
     )
     similarity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -228,10 +242,40 @@ class AttendanceLog(Base):
     student: Mapped[Student] = relationship(back_populates="attendance_logs")
     camera: Mapped[Camera | None] = relationship(back_populates="attendance_logs")
     recognition_event: Mapped[RecognitionEvent | None] = relationship(back_populates="attendance_log")
+    audits: Mapped[list["AttendanceLogAudit"]] = relationship(back_populates="attendance_log")
 
     __table_args__ = (
         UniqueConstraint("session_id", "student_id", name="uq_attendance_session_student"),
         Index("idx_attendance_logs_mvp_student_id", "student_id"),
         Index("idx_attendance_logs_mvp_session_id", "session_id"),
         Index("idx_attendance_logs_mvp_check_in_time", "check_in_time"),
+    )
+
+
+class AttendanceLogAudit(Base):
+    __tablename__ = "attendance_log_audits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    attendance_log_id: Mapped[int] = mapped_column(ForeignKey("attendance_logs_mvp.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[int] = mapped_column(ForeignKey("attendance_sessions_mvp.id", ondelete="CASCADE"), nullable=False)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students_mvp.id", ondelete="CASCADE"), nullable=False)
+    old_status: Mapped[str | None] = mapped_column(String(30))
+    new_status: Mapped[str | None] = mapped_column(String(30))
+    old_method: Mapped[str | None] = mapped_column(String(30))
+    new_method: Mapped[str | None] = mapped_column(String(30))
+    old_note: Mapped[str | None] = mapped_column(Text)
+    new_note: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    changed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
+
+    attendance_log: Mapped[AttendanceLog] = relationship(back_populates="audits")
+    session: Mapped[AttendanceSession] = relationship()
+    student: Mapped[Student] = relationship()
+
+    __table_args__ = (
+        Index("idx_attendance_log_audits_log_id", "attendance_log_id"),
+        Index("idx_attendance_log_audits_session_id", "session_id"),
+        Index("idx_attendance_log_audits_student_id", "student_id"),
+        Index("idx_attendance_log_audits_changed_at", "changed_at"),
     )

@@ -133,6 +133,25 @@ def attendance_log_to_dict(item: Any) -> dict[str, Any]:
         "recognition_event_id": item.recognition_event_id,
         "check_in_time": dt(item.check_in_time),
         "status": item.status,
+        "method": getattr(item, "method", None) or "FACE",
         "similarity": item.similarity,
         "note": item.note,
+    }
+
+
+def attendance_log_audit_to_dict(item: Any) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "attendance_log_id": item.attendance_log_id,
+        "session_id": item.session_id,
+        "student_id": item.student_id,
+        "old_status": item.old_status,
+        "new_status": item.new_status,
+        "old_method": item.old_method,
+        "new_method": item.new_method,
+        "old_note": item.old_note,
+        "new_note": item.new_note,
+        "reason": item.reason,
+        "changed_by": item.changed_by,
+        "changed_at": dt(item.changed_at),
     }

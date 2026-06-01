@@ -148,20 +148,24 @@ def get_student_attendance_summary(student_id: int, db: Session = Depends(get_db
     total_sessions = 0
     if student.class_id:
         total_sessions = db.query(AttendanceSession).join(AttendanceSession.class_course).filter(
-            AttendanceSession.status.in_(["OPEN", "CLOSED"]),
+            AttendanceSession.status.in_(["OPEN", "CLOSED", "LOCKED"]),
             AttendanceSession.class_course.has(class_id=student.class_id),
         ).count()
 
     logs_query = db.query(AttendanceLog).join(AttendanceLog.session).filter(AttendanceLog.student_id == student.id)
     if student.class_id:
         logs_query = logs_query.filter(
-            AttendanceSession.status.in_(["OPEN", "CLOSED"]),
+            AttendanceSession.status.in_(["OPEN", "CLOSED", "LOCKED"]),
             AttendanceSession.class_course.has(class_id=student.class_id),
         )
     logs = logs_query.order_by(AttendanceLog.check_in_time.desc()).all()
-    attended = len({log.session_id for log in logs})
-    absent = max(total_sessions - attended, 0)
+    present_statuses = {"ON_TIME", "LATE", "MANUAL"}
+    attended = len({log.session_id for log in logs if log.status in present_statuses})
+    recorded_absent = len({log.session_id for log in logs if log.status == "ABSENT"})
+    missing_logs = max(total_sessions - len({log.session_id for log in logs}), 0)
+    absent = recorded_absent + missing_logs
     late = sum(1 for log in logs if log.status == "LATE")
+    excused = sum(1 for log in logs if log.status == "EXCUSED")
 
     return {
         "student": student_to_dict(student),
@@ -169,6 +173,7 @@ def get_student_attendance_summary(student_id: int, db: Session = Depends(get_db
         "attended_sessions": attended,
         "absent_sessions": absent,
         "late_sessions": late,
+        "excused_sessions": excused,
         "logs": [attendance_log_to_dict(log) for log in logs[:20]],
     }
 

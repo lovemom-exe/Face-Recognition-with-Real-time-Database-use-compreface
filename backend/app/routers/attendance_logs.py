@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
+from ..attendance_services import AttendanceLogService, BusinessRuleError
 from ..database import get_db
-from ..models import AttendanceLog, AttendanceSession, Student
+from ..models import AttendanceLog
 from ..serializers import attendance_log_to_dict
-from ..services import attendance_status_for
 
 router = APIRouter(prefix="/api/attendance-logs", tags=["attendance logs"])
 
@@ -19,13 +16,21 @@ class ManualAttendanceIn(BaseModel):
     session_id: int
     student_id: int
     camera_id: int | None = None
-    status: str | None = None
+    status: str | None = "MANUAL"
     note: str = ""
+    actor_id: int | None = None
 
 
 class AttendanceLogUpdate(BaseModel):
     status: str | None = None
     note: str | None = None
+    method: str | None = None
+    reason: str | None = None
+    actor_id: int | None = None
+
+
+def _raise_business_error(exc: BusinessRuleError) -> None:
+    raise HTTPException(status_code=exc.status_code, detail=exc.message)
 
 
 @router.get("")
@@ -44,51 +49,42 @@ def list_logs(
 
 @router.post("/manual")
 def create_manual_log(payload: ManualAttendanceIn, db: Session = Depends(get_db)):
-    session = db.get(AttendanceSession, payload.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Attendance session not found")
-    if session.status != "OPEN":
-        raise HTTPException(status_code=400, detail="Buổi điểm danh chưa được mở hoặc đã đóng.")
-    student = db.get(Student, payload.student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên.")
-    if student.class_id != session.class_course.class_id:
-        raise HTTPException(status_code=400, detail="Sinh viên không thuộc lớp của buổi điểm danh này.")
-    status = payload.status or attendance_status_for(session, datetime.utcnow())
-    item = AttendanceLog(
-        session_id=payload.session_id,
-        student_id=payload.student_id,
-        camera_id=payload.camera_id,
-        status=status,
-        note=payload.note,
-    )
-    db.add(item)
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        existing = db.query(AttendanceLog).filter(
-            AttendanceLog.session_id == payload.session_id,
-            AttendanceLog.student_id == payload.student_id,
-        ).first()
-        if existing:
-            existing.status = status
-            existing.note = payload.note
-            db.commit()
-            db.refresh(existing)
-            return attendance_log_to_dict(existing)
-        raise
-    db.refresh(item)
-    return attendance_log_to_dict(item)
+        return AttendanceLogService(db).manual_attendance(
+            session_id=payload.session_id,
+            student_id=payload.student_id,
+            status=payload.status,
+            note=payload.note,
+            actor_id=payload.actor_id,
+            camera_id=payload.camera_id,
+        )
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
+
+
+@router.patch("/{log_id}")
+def patch_log(log_id: int, payload: AttendanceLogUpdate, db: Session = Depends(get_db)):
+    try:
+        return AttendanceLogService(db).update_log(
+            log_id=log_id,
+            status=payload.status,
+            note=payload.note,
+            method=payload.method,
+            reason=payload.reason,
+            actor_id=payload.actor_id,
+        )
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)
 
 
 @router.put("/{log_id}")
 def update_log(log_id: int, payload: AttendanceLogUpdate, db: Session = Depends(get_db)):
-    item = db.get(AttendanceLog, log_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Attendance log not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(item, key, value)
-    db.commit()
-    db.refresh(item)
-    return attendance_log_to_dict(item)
+    return patch_log(log_id, payload, db)
+
+
+@router.get("/{log_id}/audits")
+def log_audits(log_id: int, db: Session = Depends(get_db)):
+    try:
+        return AttendanceLogService(db).audits_for_log(log_id)
+    except BusinessRuleError as exc:
+        _raise_business_error(exc)

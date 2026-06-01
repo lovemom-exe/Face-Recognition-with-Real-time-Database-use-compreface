@@ -5,7 +5,7 @@ import os
 
 class Settings:
     app_name = "Face Attendance MVP API"
-    database_url = os.environ.get("BACKEND_DATABASE_URL", "sqlite:///backend_attendance.db")
+    database_url = os.environ.get("DATABASE_URL") or os.environ.get("BACKEND_DATABASE_URL", "sqlite:///backend_attendance.db")
     compreface_base_url = os.environ.get("COMPREFACE_BASE_URL", "http://localhost:8000")
     compreface_recognition_api_key = os.environ.get(
         "COMPREFACE_RECOGNITION_API_KEY",
