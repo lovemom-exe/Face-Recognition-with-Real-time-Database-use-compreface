@@ -46,6 +46,10 @@ def session_scope() -> Iterator[Session]:
 def init_db() -> None:
     from . import models  # noqa: F401
 
+    if not settings.database_url.startswith("sqlite"):
+        logger.info("Skipping metadata.create_all for non-SQLite database; run Alembic migrations instead.")
+        return
+
     Base.metadata.create_all(bind=engine)
     _ensure_sqlite_columns()
 

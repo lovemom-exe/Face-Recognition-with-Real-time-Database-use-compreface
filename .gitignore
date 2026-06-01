@@ -36,3 +36,24 @@ Thumbs.db
 .understand-anything/
 .understand-anything/dashboard*.log
 .understand-anything/fingerprints.json
+
+# Local / generated
+.codegraph/
+prompt_improve/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite
+*.sqlite3
+.env
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# VS Code local
+.vscode/

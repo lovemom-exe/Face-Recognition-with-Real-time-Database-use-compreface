@@ -29,8 +29,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    role: Mapped[str] = mapped_column(Enum("ADMIN", "TEACHER", name="user_role"), nullable=False, default="TEACHER")
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="user_status"), nullable=False, default="ACTIVE")
+    role: Mapped[str] = mapped_column(Enum("ADMIN", "TEACHER", name="user_role", native_enum=False), nullable=False, default="TEACHER")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="user_status", native_enum=False), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
 
 
@@ -41,7 +41,7 @@ class StudyClass(Base):
     class_code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     class_name: Mapped[str] = mapped_column(String(150), nullable=False)
     school_year: Mapped[str | None] = mapped_column(String(20))
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="class_status"), nullable=False, default="ACTIVE")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="class_status", native_enum=False), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
 
     students: Mapped[list["Student"]] = relationship(back_populates="study_class")
@@ -60,7 +60,7 @@ class Student(Base):
     email: Mapped[str | None] = mapped_column(String(150))
     cohort: Mapped[str | None] = mapped_column(String(50))
     major: Mapped[str | None] = mapped_column(String(150))
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="student_status"), nullable=False, default="ACTIVE")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="student_status", native_enum=False), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc, onupdate=now_utc)
 
@@ -81,7 +81,7 @@ class Course(Base):
     course_code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     course_name: Mapped[str] = mapped_column(String(150), nullable=False)
     credits: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="course_status"), nullable=False, default="ACTIVE")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="course_status", native_enum=False), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
 
     class_courses: Mapped[list["ClassCourse"]] = relationship(back_populates="course")
@@ -95,7 +95,7 @@ class ClassCourse(Base):
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
     teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     semester: Mapped[str] = mapped_column(String(30), nullable=False, default="")
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="class_course_status"), nullable=False, default="ACTIVE")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="class_course_status", native_enum=False), nullable=False, default="ACTIVE")
 
     study_class: Mapped[StudyClass] = relationship(back_populates="class_courses")
     course: Mapped[Course] = relationship(back_populates="class_courses")
@@ -119,7 +119,7 @@ class AttendanceSession(Base):
     end_time: Mapped[datetime | None] = mapped_column(DateTime)
     late_threshold_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
     status: Mapped[str] = mapped_column(
-        Enum("DRAFT", "OPEN", "CLOSED", "LOCKED", "CANCELLED", name="attendance_session_status"),
+        Enum("DRAFT", "OPEN", "CLOSED", "LOCKED", "CANCELLED", name="attendance_session_status", native_enum=False),
         nullable=False,
         default="DRAFT",
     )
@@ -144,7 +144,7 @@ class FaceProfile(Base):
     compreface_subject: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
     sample_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(
-        Enum("PENDING", "ACTIVE", "RETRAIN_REQUIRED", "DISABLED", name="face_profile_status"),
+        Enum("PENDING", "ACTIVE", "RETRAIN_REQUIRED", "DISABLED", name="face_profile_status", native_enum=False),
         nullable=False,
         default="PENDING",
     )
@@ -168,7 +168,7 @@ class Camera(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     location: Mapped[str | None] = mapped_column(String(200))
     stream_url: Mapped[str | None] = mapped_column(String(500))
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "INACTIVE", "ERROR", name="camera_status"), nullable=False, default="ACTIVE")
+    status: Mapped[str] = mapped_column(Enum("ACTIVE", "INACTIVE", "ERROR", name="camera_status", native_enum=False), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
 
     recognition_events: Mapped[list["RecognitionEvent"]] = relationship(back_populates="camera")
@@ -186,7 +186,7 @@ class RecognitionEvent(Base):
     subject: Mapped[str | None] = mapped_column(String(150))
     similarity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     result_type: Mapped[str] = mapped_column(
-        Enum("MATCH", "UNKNOWN", "LOW_CONFIDENCE", "ERROR", name="recognition_result_type"),
+        Enum("MATCH", "UNKNOWN", "LOW_CONFIDENCE", "ERROR", name="recognition_result_type", native_enum=False),
         nullable=False,
         default="UNKNOWN",
     )
@@ -226,12 +226,13 @@ class AttendanceLog(Base):
             "PENDING_REVIEW",
             "INVALID",
             name="attendance_log_status",
+            native_enum=False,
         ),
         nullable=False,
         default="ON_TIME",
     )
     method: Mapped[str] = mapped_column(
-        Enum("FACE", "MANUAL", "AUTO_ABSENT", name="attendance_log_method"),
+        Enum("FACE", "MANUAL", "AUTO_ABSENT", name="attendance_log_method", native_enum=False),
         nullable=False,
         default="FACE",
     )

@@ -69,3 +69,65 @@ $env:ATTENDANCE_RECOGNITION_THRESHOLD="0.97"
 ```
 
 The default database is `backend_attendance.db`, separate from the older desktop app's `attendance.db`.
+
+## PostgreSQL local
+
+Phase 1.5 keeps SQLite as a fallback, but PostgreSQL plus Alembic is the main database path.
+
+Start PostgreSQL:
+
+```powershell
+cd "C:\Users\X1 Yoga\hust\pttkht"
+docker compose -f docker-compose.postgres.yml up -d
+```
+
+Use this connection string:
+
+```powershell
+$env:DATABASE_URL="postgresql+psycopg2://face_attendance:face_attendance_password@127.0.0.1:5432/face_attendance"
+```
+
+If local port 5432 is already used, run PostgreSQL on another host port:
+
+```powershell
+$env:POSTGRES_PORT="55432"
+docker compose -f docker-compose.postgres.yml up -d
+$env:DATABASE_URL="postgresql+psycopg2://face_attendance:face_attendance_password@127.0.0.1:55432/face_attendance"
+```
+
+Install backend dependencies after pulling Phase 1.5 changes:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Run migrations:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+Rollback the latest migration if needed:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic downgrade -1
+```
+
+Start backend on PostgreSQL:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8080
+```
+
+On non-SQLite databases the app does not call `metadata.create_all()` at startup. Run Alembic before starting the backend.
+
+## SQLite fallback
+
+For quick local dev without Docker:
+
+```powershell
+$env:DATABASE_URL="sqlite:///backend_attendance.db"
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8080
+```
+
+SQLite still uses `metadata.create_all()` plus the minimal compatibility helper in `backend/app/database.py`.
