@@ -1,4 +1,5 @@
 import cv2
+import os
 import tkinter as tk
 from PIL import Image, ImageTk
 import threading
@@ -6,7 +7,7 @@ import requests
 import time
 
 # --- CẤU HÌNH COMPREFACE SERVER ---
-API_KEY = "3652ba37-14dc-4884-8be1-77a27f0022e9"
+API_KEY = os.environ.get("COMPREFACE_RECOGNITION_API_KEY", "")
 URL = "http://localhost:8000/api/v1/recognition/recognize"
 
 class CompreFaceClientApp:

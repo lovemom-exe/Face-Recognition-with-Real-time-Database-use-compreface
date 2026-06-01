@@ -1,0 +1,40 @@
+flowchart TB
+    Camera["Camera/Webcam"]
+    UI["Ung dung tram diem danh"]
+    AI["CompreFace AI Service"]
+
+    P31(("P3.1\nLay frame camera"))
+    P32(("P3.2\nNen frame thanh JPG"))
+    P33(("P3.3\nGui frame den AI"))
+    P34(("P3.4\nLoc ket qua nhan dien"))
+    P41(("P4.1\nTra cuu sinh vien"))
+    P42(("P4.2\nKiem tra dedup"))
+    P43(("P4.3\nTinh trang thai"))
+    P44(("P4.4\nGhi log diem danh"))
+    P45(("P4.5\nCap nhat giao dien"))
+
+    D1[("D1 Sinh vien")]
+    D3[("D3 Buoi hoc")]
+    D4[("D4 Su kien nhan dien")]
+    D5[("D5 Log diem danh")]
+
+    Camera -->|Raw frame| P31
+    P31 -->|Frame moi nhat| UI
+    UI -->|Frame dinh ky| P32
+    P32 -->|File JPG| P33
+    P33 -->|HTTP POST image| AI
+    AI -->|Subject, similarity, box| P34
+    P34 -->|Luu event raw/unknown| D4
+    P34 -->|Subject hop nguong| P41
+    P41 -->|Tim theo compreface_name| D1
+    D1 -->|Student| P41
+    P41 -->|Student hop le| P42
+    P42 -->|Kiem tra log gan nhat| D5
+    D5 -->|Log gan nhat| P42
+    P42 -->|Cho phep ghi| P43
+    P43 -->|Doc buoi hoc active| D3
+    D3 -->|Start time, late threshold| P43
+    P43 -->|ON_TIME/LATE| P44
+    P44 -->|Attendance log| D5
+    P44 -->|Ket qua ghi nhan| P45
+    P45 -->|Box, ten, trang thai| UI

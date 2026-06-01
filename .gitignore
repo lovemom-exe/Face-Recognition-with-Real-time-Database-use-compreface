@@ -1,8 +1,10 @@
 # Virtual environment
 .venv/
+venv/
 
 # IDE
 .idea/
+.vscode/
 
 # Python
 __pycache__/
@@ -12,6 +14,25 @@ __pycache__/
 dist/
 build/
 
+# Local config and runtime data
+.env
+*.db
+*.sqlite
+*.sqlite3
+*.log
+archive/
+CompreFace_BachKhoa/**/*.env
+Face-Recognition-with-Real-time-Database-use-compreface/
+
+# Frontend generated/dependency folders
+frontend/node_modules/
+frontend/dist/
+
 # OS
 Thumbs.db
 .DS_Store
+
+# Understand Anything runtime output
+.understand-anything/
+.understand-anything/dashboard*.log
+.understand-anything/fingerprints.json

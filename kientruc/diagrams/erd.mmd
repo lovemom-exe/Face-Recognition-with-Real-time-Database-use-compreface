@@ -1,0 +1,95 @@
+erDiagram
+    USER ||--o{ ATTENDANCE_SESSION : creates
+    CLASS ||--o{ STUDENT : has
+    CLASS ||--o{ ATTENDANCE_SESSION : schedules
+    COURSE ||--o{ ATTENDANCE_SESSION : belongs_to
+    STUDENT ||--|| FACE_PROFILE : owns
+    STUDENT ||--o{ ATTENDANCE_LOG : has
+    ATTENDANCE_SESSION ||--o{ ATTENDANCE_LOG : contains
+    CAMERA ||--o{ ATTENDANCE_LOG : records
+    FACE_PROFILE ||--o{ RECOGNITION_EVENT : matches
+    ATTENDANCE_LOG ||--o| RECOGNITION_EVENT : based_on
+
+    USER {
+        int id PK
+        string username UK
+        string password_hash
+        string full_name
+        string role
+        datetime created_at
+    }
+
+    CLASS {
+        int id PK
+        string class_code UK
+        string class_name
+        string school_year
+    }
+
+    STUDENT {
+        int id PK
+        string student_code UK
+        string full_name
+        int class_id FK
+        string compreface_name UK
+        datetime created_at
+        datetime updated_at
+    }
+
+    COURSE {
+        int id PK
+        string course_code UK
+        string course_name
+        int credit
+    }
+
+    ATTENDANCE_SESSION {
+        int id PK
+        int class_id FK
+        int course_id FK
+        int created_by FK
+        string session_name
+        datetime start_time
+        int late_threshold
+        string status
+        datetime created_at
+    }
+
+    FACE_PROFILE {
+        int id PK
+        int student_id FK
+        string compreface_name UK
+        int sample_count
+        string status
+        datetime last_enrolled_at
+    }
+
+    CAMERA {
+        int id PK
+        string camera_code UK
+        string location
+        string stream_url
+        string status
+    }
+
+    RECOGNITION_EVENT {
+        int id PK
+        int face_profile_id FK
+        int camera_id FK
+        datetime detected_at
+        decimal similarity
+        string result_type
+        string image_ref
+    }
+
+    ATTENDANCE_LOG {
+        int id PK
+        int student_id FK
+        int session_id FK
+        int camera_id FK
+        int recognition_event_id FK
+        datetime check_in_time
+        string status
+        decimal similarity
+        string note
+    }

@@ -1,0 +1,44 @@
+flowchart LR
+    Teacher["Giao vien/Quan tri vien"]
+    Student["Sinh vien"]
+    Camera["Camera/Webcam"]
+    AI["CompreFace AI Service"]
+
+    P1(("P1\nQuan ly danh muc"))
+    P2(("P2\nQuan ly khuon mat"))
+    P3(("P3\nNhan dien realtime"))
+    P4(("P4\nXu ly diem danh"))
+    P5(("P5\nTra cuu bao cao"))
+
+    D1[("D1 Sinh vien/Lop")]
+    D2[("D2 Ho so khuon mat")]
+    D3[("D3 Buoi hoc")]
+    D4[("D4 Su kien nhan dien")]
+    D5[("D5 Log diem danh")]
+
+    Teacher -->|Thong tin sinh vien, lop, mon| P1
+    P1 -->|Ghi/cap nhat danh muc| D1
+    P1 -->|Thong tin buoi hoc| D3
+
+    Teacher -->|Anh mau, yeu cau enroll| P2
+    P2 -->|Tao subject/upload anh| AI
+    AI -->|Ket qua enroll| P2
+    P2 -->|Metadata ho so khuon mat| D2
+
+    Camera -->|Frame hinh anh| P3
+    P3 -->|Anh JPG| AI
+    AI -->|Subject, similarity, box| P3
+    P3 -->|Su kien nhan dien| D4
+    P3 -->|Ket qua hop le| P4
+
+    Student -->|Co mat truoc camera| Camera
+    P4 -->|Doc sinh vien| D1
+    P4 -->|Doc buoi hoc active| D3
+    P4 -->|Doc log gan nhat| D5
+    P4 -->|Ghi log diem danh| D5
+
+    Teacher -->|Yeu cau xem bao cao| P5
+    P5 -->|Doc danh muc| D1
+    P5 -->|Doc buoi hoc| D3
+    P5 -->|Doc log| D5
+    P5 -->|Bao cao diem danh| Teacher

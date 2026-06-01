@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph Client["Tram diem danh"]
+        UI["Presentation\nPyQt/Tkinter/Web UI"]
+        Capture["Camera capture"]
+        Worker["Recognition worker\nxu ly nen"]
+    end
+
+    subgraph App["Application services"]
+        AttendanceSvc["AttendanceService\nluong diem danh"]
+        EnrollmentSvc["EnrollmentService\nquan ly anh mau"]
+        ReportSvc["ReportService\nthong ke bao cao"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        CompreFaceClient["CompreFaceClient\nHTTP API"]
+        Repositories["Repositories/CRUD"]
+        Config["Config/ENV"]
+    end
+
+    subgraph External["Dich vu ngoai"]
+        CompreFace["CompreFace\nRecognition service"]
+    end
+
+    subgraph Storage["Luu tru"]
+        AttendanceDB[("Attendance DB\nstudents/sessions/logs")]
+        FaceStore[("Face embeddings/images\ntrong CompreFace")]
+    end
+
+    Capture --> UI
+    UI --> Worker
+    Worker --> AttendanceSvc
+    AttendanceSvc --> CompreFaceClient
+    EnrollmentSvc --> CompreFaceClient
+    CompreFaceClient --> CompreFace
+    CompreFace --> FaceStore
+    AttendanceSvc --> Repositories
+    ReportSvc --> Repositories
+    EnrollmentSvc --> Repositories
+    Repositories --> AttendanceDB
+    Config --> AttendanceSvc
+    Config --> CompreFaceClient

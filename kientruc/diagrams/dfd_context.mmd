@@ -1,0 +1,8 @@
+flowchart LR
+    Student["Sinh vien"] -->|Khuon mat truc tiep| System(("He thong quan ly diem danh\nbang nhan dien khuon mat"))
+    Teacher["Giao vien/Quan tri vien"] -->|Thong tin lop, sinh vien, buoi hoc| System
+    Camera["Camera/Webcam"] -->|Frame hinh anh| System
+    System -->|Ket qua diem danh, bao cao| Teacher
+    System -->|Trang thai da diem danh| Student
+    System -->|Anh can nhan dien| AI["CompreFace AI Service"]
+    AI -->|Subject, similarity, bounding box| System

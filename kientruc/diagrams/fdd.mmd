@@ -1,0 +1,41 @@
+flowchart TD
+    A["0. He thong quan ly diem danh bang nhan dien khuon mat"]
+
+    A --> B["1. Quan ly danh muc"]
+    B --> B1["1.1 Quan ly sinh vien"]
+    B --> B2["1.2 Quan ly lop"]
+    B --> B3["1.3 Quan ly mon hoc"]
+    B --> B4["1.4 Quan ly buoi hoc"]
+
+    A --> C["2. Quan ly du lieu khuon mat"]
+    C --> C1["2.1 Tao subject tren CompreFace"]
+    C --> C2["2.2 Thu thap anh mau"]
+    C --> C3["2.3 Upload/enroll anh mau"]
+    C --> C4["2.4 Kiem tra chat luong ho so"]
+    C --> C5["2.5 Khoa/mo khoa ho so khuon mat"]
+
+    A --> D["3. Diem danh thoi gian thuc"]
+    D --> D1["3.1 Mo camera"]
+    D --> D2["3.2 Chup frame dinh ky"]
+    D --> D3["3.3 Gui frame den AI"]
+    D --> D4["3.4 Nhan ket qua subject/similarity"]
+    D --> D5["3.5 Hien thi bounding box"]
+
+    A --> E["4. Xu ly va ghi nhan diem danh"]
+    E --> E1["4.1 Tra cuu sinh vien"]
+    E --> E2["4.2 Kiem tra nguong similarity"]
+    E --> E3["4.3 Chong ghi trung"]
+    E --> E4["4.4 Xac dinh dung gio/di muon"]
+    E --> E5["4.5 Luu attendance log"]
+
+    A --> F["5. Tra cuu va bao cao"]
+    F --> F1["5.1 Xem danh sach diem danh hom nay"]
+    F --> F2["5.2 Loc theo lop/buoi hoc"]
+    F --> F3["5.3 Thong ke dung gio/di muon/vang"]
+    F --> F4["5.4 Xuat bao cao"]
+
+    A --> G["6. Quan tri he thong"]
+    G --> G1["6.1 Cau hinh API/threshold"]
+    G --> G2["6.2 Quan ly tai khoan"]
+    G --> G3["6.3 Theo doi loi ket noi AI"]
+    G --> G4["6.4 Sao luu phuc hoi du lieu"]
