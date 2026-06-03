@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import attendance_logs, attendance_sessions, cameras, classes, compreface, courses, face_profiles, recognition, students
+from .routers import attendance_logs, attendance_sessions, cameras, classes, compreface, courses, face_profiles, recognition, reports, students
 
 
 app = FastAPI(title=settings.app_name)
@@ -38,3 +38,4 @@ app.include_router(face_profiles.router)
 app.include_router(attendance_sessions.router)
 app.include_router(recognition.router)
 app.include_router(attendance_logs.router)
+app.include_router(reports.router)
