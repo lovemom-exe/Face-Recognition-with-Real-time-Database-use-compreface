@@ -9,38 +9,61 @@ import {
   FileImage,
   GraduationCap,
   ImageUp,
+  KeyRound,
+  LockKeyhole,
   Loader2,
+  LogOut,
   Pencil,
   Play,
   RefreshCcw,
   Save,
   Search,
+  ShieldCheck,
   Square,
   Trash2,
   UserCheck,
+  UserPlus,
   Users,
   Video,
   X,
 } from 'lucide-react'
 import './App.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const TOKEN_STORAGE_KEY = 'face_attendance_access_token'
+const USER_STORAGE_KEY = 'face_attendance_user'
+
+let apiToken = localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+
+function setApiToken(token) {
+  apiToken = token || ''
+}
 
 const emptyClass = { class_code: '', class_name: '', school_year: '2026' }
 const emptyCourse = { course_code: '', course_name: '', credits: 3 }
 const emptyStudent = { student_code: '', full_name: '', class_id: '', email: '', cohort: '', major: '' }
 const emptyCamera = { camera_code: '', name: '', location: '', stream_url: '' }
-const emptyClassCourse = { class_id: '', course_id: '', semester: '2026-2' }
+const emptyClassCourse = { class_id: '', course_id: '', teacher_id: '', semester: '2026-2' }
 const emptySession = { class_course_id: '', session_name: '', start_time: '', late_threshold_minutes: 15 }
+const emptyTeacherAssignment = { teacher_id: '', class_course_id: '' }
+const emptyPasswordForm = { old_password: '', new_password: '', confirm_password: '' }
+const emptyRegisterForm = { email: '', full_name: '', password: '', confirm_password: '' }
 
 async function api(path, options = {}) {
+  const baseHeaders = options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }
+  if (apiToken) baseHeaders.Authorization = `Bearer ${apiToken}`
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: options.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
     ...options,
+    headers: { ...baseHeaders, ...(options.headers || {}) },
   })
   const text = await response.text()
   const data = text ? JSON.parse(text) : null
-  if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
+  if (!response.ok) {
+    const error = new Error(data?.message || data?.detail || `HTTP ${response.status}`)
+    error.status = response.status
+    error.data = data
+    throw error
+  }
   return data
 }
 
@@ -129,6 +152,69 @@ function StatusBar({ status, error }) {
   )
 }
 
+function LoginScreen({
+  mode,
+  onModeChange,
+  loginForm,
+  registerForm,
+  onLoginChange,
+  onRegisterChange,
+  onLoginSubmit,
+  onRegisterSubmit,
+  error,
+  message,
+  busy,
+}) {
+  const isRegister = mode === 'register'
+  return (
+    <div className="login-shell">
+      <form className="login-card" onSubmit={isRegister ? onRegisterSubmit : onLoginSubmit}>
+        <div className="login-mark">{isRegister ? <UserPlus size={24} /> : <KeyRound size={24} />}</div>
+        <h1>{isRegister ? 'Đăng ký tài khoản giảng viên' : 'Đăng nhập FaceAttend'}</h1>
+        <p>
+          {isRegister
+            ? 'Dùng email trường để tạo tài khoản. Admin sẽ duyệt và phân công lớp tín chỉ trước khi bạn đăng nhập.'
+            : 'Giảng viên đăng nhập bằng email trường hoặc tên đăng nhập đã được cấp.'}
+        </p>
+        {isRegister ? (
+          <>
+            <Field label="Họ tên giảng viên">
+              <input value={registerForm.full_name} onChange={(event) => onRegisterChange('full_name', event.target.value)} autoComplete="name" required />
+            </Field>
+            <Field label="Email trường">
+              <input type="email" value={registerForm.email} onChange={(event) => onRegisterChange('email', event.target.value)} autoComplete="email" required />
+            </Field>
+            <Field label="Mật khẩu">
+              <input type="password" value={registerForm.password} onChange={(event) => onRegisterChange('password', event.target.value)} autoComplete="new-password" required />
+            </Field>
+            <Field label="Nhập lại mật khẩu">
+              <input type="password" value={registerForm.confirm_password} onChange={(event) => onRegisterChange('confirm_password', event.target.value)} autoComplete="new-password" required />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Email trường hoặc tên đăng nhập">
+              <input value={loginForm.username} onChange={(event) => onLoginChange('username', event.target.value)} autoComplete="username" required />
+            </Field>
+            <Field label="Mật khẩu">
+              <input type="password" value={loginForm.password} onChange={(event) => onLoginChange('password', event.target.value)} autoComplete="current-password" required />
+            </Field>
+          </>
+        )}
+        {message ? <div className="login-success">{message}</div> : null}
+        {error ? <div className="login-error">{error}</div> : null}
+        <button className="primary login-button" type="submit" disabled={busy}>
+          {busy ? <Loader2 className="spin" size={17} /> : isRegister ? <UserPlus size={17} /> : <KeyRound size={17} />}
+          {isRegister ? 'Đăng ký' : 'Đăng nhập'}
+        </button>
+        <button className="link-button" type="button" onClick={() => onModeChange(isRegister ? 'login' : 'register')} disabled={busy}>
+          {isRegister ? 'Đã có tài khoản? Đăng nhập' : 'Giảng viên chưa có tài khoản? Đăng ký'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 function DataTable({ columns, rows, emptyText }) {
   return (
     <div className="table-wrap">
@@ -154,6 +240,19 @@ function DataTable({ columns, rows, emptyText }) {
 
 function App() {
   const [activeTab, setActiveTab] = useState('directory')
+  const [auth, setAuth] = useState(() => {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+    const userRaw = localStorage.getItem(USER_STORAGE_KEY)
+    setApiToken(token)
+    return { token, user: userRaw ? JSON.parse(userRaw) : null }
+  })
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+  const [authMode, setAuthMode] = useState('login')
+  const [registerForm, setRegisterForm] = useState(emptyRegisterForm)
+  const [loginError, setLoginError] = useState('')
+  const [registerMessage, setRegisterMessage] = useState('')
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
+  const [passwordMessage, setPasswordMessage] = useState('')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -165,6 +264,8 @@ function App() {
     classCourses: [],
     sessions: [],
     logs: [],
+    users: [],
+    teacherAssignments: [],
     comprefaceSubjects: [],
     comprefaceStatus: null,
   })
@@ -174,6 +275,7 @@ function App() {
     student: emptyStudent,
     camera: emptyCamera,
     classCourse: emptyClassCourse,
+    teacherAssignment: emptyTeacherAssignment,
     session: { ...emptySession, start_time: toLocalDatetimeValue() },
   })
   const [search, setSearch] = useState('')
@@ -205,14 +307,121 @@ function App() {
   const streamRef = useRef(null)
   const scanTimerRef = useRef(null)
 
+  function clearAuth(message = '') {
+    setApiToken('')
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    localStorage.removeItem(USER_STORAGE_KEY)
+    setAuth({ token: '', user: null })
+    setStatus('error')
+    setError(message)
+    stopCamera()
+  }
+
+  function handleApiError(err) {
+    if (err?.status === 401) {
+      clearAuth('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+      return
+    }
+    setError(err.message)
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault()
+    setBusy(true)
+    setLoginError('')
+    setError('')
+    try {
+      const result = await api('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(loginForm),
+      })
+      setApiToken(result.access_token)
+      localStorage.setItem(TOKEN_STORAGE_KEY, result.access_token)
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user))
+      setAuth({ token: result.access_token, user: result.user })
+      setLoginForm({ username: '', password: '' })
+      setStatus('loading')
+    } catch (err) {
+      setLoginError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRegisterTeacher(event) {
+    event.preventDefault()
+    setBusy(true)
+    setLoginError('')
+    setRegisterMessage('')
+    setError('')
+    if (registerForm.password !== registerForm.confirm_password) {
+      setLoginError('Mật khẩu nhập lại chưa khớp.')
+      setBusy(false)
+      return
+    }
+    try {
+      const result = await api('/api/v1/auth/register-teacher', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: registerForm.email,
+          full_name: registerForm.full_name,
+          password: registerForm.password,
+        }),
+      })
+      setRegisterForm(emptyRegisterForm)
+      setRegisterMessage(result.message || 'Tài khoản đang chờ admin duyệt.')
+      setAuthMode('login')
+    } catch (err) {
+      setLoginError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleLogout() {
+    setBusy(true)
+    try {
+      if (auth.token) await api('/api/v1/auth/logout', { method: 'POST' })
+    } catch {
+      // Logout locally even if the token is already invalid on the backend.
+    } finally {
+      setBusy(false)
+      clearAuth('Đã đăng xuất.')
+    }
+  }
+
   const filteredStudents = useMemo(() => {
     const value = search.trim().toLowerCase()
     if (!value) return data.students
     return data.students.filter((student) => `${student.student_code} ${student.full_name} ${student.class_name || ''}`.toLowerCase().includes(value))
   }, [data.students, search])
 
+  const isAdmin = auth.user?.role === 'ADMIN'
+  const canManageCatalog = ['ADMIN', 'STAFF'].includes(auth.user?.role)
+  const teacherUsers = data.users.filter((user) => user.role === 'TEACHER')
+  const pendingTeachers = teacherUsers.filter((user) => user.status === 'PENDING')
   const openSessions = data.sessions.filter((session) => session.status === 'OPEN')
   const presentCount = roster.filter((student) => student.attendance_status !== 'ABSENT').length
+
+  function teacherName(teacherId) {
+    const teacher = teacherUsers.find((item) => Number(item.id) === Number(teacherId))
+    return teacher ? `${teacher.full_name} (${teacher.email || teacher.username})` : teacherId ? `ID ${teacherId}` : 'Chưa phân công'
+  }
+
+  function classCourseLabel(item) {
+    if (!item) return 'Chưa chọn'
+    return `${item.class?.class_code || item.class_id} / ${item.course?.course_code || item.course_id} - ${item.semester || 'Chưa có kỳ'}`
+  }
+
+  function studyClassName(classId) {
+    const studyClass = data.classes.find((item) => Number(item.id) === Number(classId))
+    return studyClass ? `${studyClass.class_code} - ${studyClass.class_name}` : `Lớp ID ${classId}`
+  }
+
+  function courseName(courseId) {
+    const course = data.courses.find((item) => Number(item.id) === Number(courseId))
+    return course ? `${course.course_code} - ${course.course_name}` : courseId ? `Môn ID ${courseId}` : 'Tất cả môn'
+  }
 
   async function loadAll() {
     setBusy(true)
@@ -230,6 +439,12 @@ function App() {
         api('/api/compreface/subjects'),
         api('/api/compreface/status'),
       ])
+      const [users, teacherAssignments] = isAdmin
+        ? await Promise.all([
+          api('/api/v1/users?role=TEACHER'),
+          api('/api/v1/teacher-assignments'),
+        ])
+        : [[], []]
       setStatus(health?.status === 'ok' ? 'ok' : 'error')
       setData({
         classes,
@@ -239,6 +454,8 @@ function App() {
         classCourses,
         sessions,
         logs,
+        users,
+        teacherAssignments,
         comprefaceSubjects: comprefaceSubjects.subjects || [],
         comprefaceStatus,
       })
@@ -248,7 +465,7 @@ function App() {
       }
     } catch (err) {
       setStatus('error')
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -267,7 +484,7 @@ function App() {
       setSelectedClassId(String(classId))
       setClassDetail(result)
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -282,7 +499,7 @@ function App() {
       const result = await api(`/api/attendance-sessions/${sessionId}/roster`)
       setRoster(result.students || [])
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     }
   }
 
@@ -293,6 +510,9 @@ function App() {
   }
 
   useEffect(() => {
+    if (!auth.token) {
+      return undefined
+    }
     const timer = window.setTimeout(() => {
       loadAll()
       loadVideoDevices()
@@ -302,7 +522,7 @@ function App() {
       stopCamera()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [auth.token])
 
   useEffect(() => {
     const timer = window.setTimeout(() => loadRoster(recognitionSessionId), 0)
@@ -322,7 +542,7 @@ function App() {
       if (resetName) setForms((current) => ({ ...current, [resetName]: resetValue }))
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -340,7 +560,7 @@ function App() {
       setEditingClassId(null)
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -358,7 +578,7 @@ function App() {
       setEditingCourseId(null)
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -371,7 +591,7 @@ function App() {
       await api(path, { method: 'DELETE' })
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -394,7 +614,7 @@ function App() {
       await api(`/api/attendance-sessions/${sessionId}/open`, { method: 'POST' })
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -408,10 +628,78 @@ function App() {
       await loadAll()
       if (String(sessionId) === recognitionSessionId) setRecognitionSessionId('')
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
+  }
+
+  async function changePassword(event) {
+    event.preventDefault()
+    setBusy(true)
+    setPasswordMessage('')
+    setError('')
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setError('Mật khẩu mới nhập lại chưa khớp.')
+      setBusy(false)
+      return
+    }
+    try {
+      const result = await api('/api/v1/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          old_password: passwordForm.old_password,
+          new_password: passwordForm.new_password,
+        }),
+      })
+      setPasswordForm(emptyPasswordForm)
+      setPasswordMessage(result.message || 'Đã đổi mật khẩu.')
+    } catch (err) {
+      handleApiError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function approveTeacher(userId) {
+    setBusy(true)
+    setError('')
+    try {
+      await api(`/api/v1/users/${userId}/approve`, { method: 'POST' })
+      await loadAll()
+    } catch (err) {
+      handleApiError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function disableTeacher(userId) {
+    setBusy(true)
+    setError('')
+    try {
+      await api(`/api/v1/users/${userId}/disable`, { method: 'POST' })
+      await loadAll()
+    } catch (err) {
+      handleApiError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createTeacherAssignment(event) {
+    event.preventDefault()
+    const classCourse = data.classCourses.find((item) => Number(item.id) === Number(forms.teacherAssignment.class_course_id))
+    if (!classCourse) {
+      setError('Chưa chọn lớp tín chỉ hợp lệ.')
+      return
+    }
+    await submitJson('/api/v1/teacher-assignments', {
+      teacher_id: Number(forms.teacherAssignment.teacher_id),
+      class_id: Number(classCourse.class_id),
+      course_id: Number(classCourse.course_id),
+      semester: classCourse.semester || '',
+    }, 'teacherAssignment', emptyTeacherAssignment)
   }
 
   async function createFaceProfile() {
@@ -429,7 +717,7 @@ function App() {
       })
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -446,7 +734,7 @@ function App() {
       setFaceFiles([])
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -464,7 +752,7 @@ function App() {
       setError(`CSV: tạo mới ${result.created}, cập nhật ${result.updated}, lỗi/bỏ qua ${result.skipped}`)
       await loadAll()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -481,7 +769,7 @@ function App() {
       setIsCameraOn(true)
       await loadVideoDevices()
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     }
   }
 
@@ -519,7 +807,7 @@ function App() {
       setDetections(result.detections || [])
       await Promise.all([loadAll(), loadRoster()])
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setIsRecognizing(false)
     }
@@ -555,7 +843,7 @@ function App() {
       })
       await Promise.all([loadAll(), loadRoster()])
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -585,7 +873,7 @@ function App() {
         await Promise.all([loadAll(), loadRoster()])
       }
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -602,7 +890,7 @@ function App() {
       }
       setRejectedDetectionIds((current) => [...current, id])
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
@@ -624,10 +912,31 @@ function App() {
       const result = await api(`/api/students/${studentId}/attendance-summary`)
       setStudentSummary(result)
     } catch (err) {
-      setError(err.message)
+      handleApiError(err)
     } finally {
       setBusy(false)
     }
+  }
+
+  if (!auth.token) {
+    return (
+      <LoginScreen
+        mode={authMode}
+        onModeChange={(mode) => {
+          setAuthMode(mode)
+          setLoginError('')
+        }}
+        loginForm={loginForm}
+        registerForm={registerForm}
+        onLoginChange={(key, value) => setLoginForm((current) => ({ ...current, [key]: value }))}
+        onRegisterChange={(key, value) => setRegisterForm((current) => ({ ...current, [key]: value }))}
+        onLoginSubmit={handleLogin}
+        onRegisterSubmit={handleRegisterTeacher}
+        error={loginError || error}
+        message={registerMessage}
+        busy={busy}
+      />
+    )
   }
 
   const tabs = [
@@ -635,6 +944,7 @@ function App() {
     ['sessions', ClipboardList, 'Buổi điểm danh'],
     ['faces', ImageUp, 'Hồ sơ khuôn mặt'],
     ['recognition', Video, 'Trạm camera'],
+    ['account', ShieldCheck, 'Tài khoản'],
   ]
 
   return (
@@ -660,9 +970,18 @@ function App() {
             <p>Hệ thống điểm danh bằng camera, đối chiếu CompreFace với danh sách sinh viên trong lớp.</p>
           </div>
           <div className="topbar-actions">
+            {auth.user ? (
+              <div className="user-chip">
+                <strong>{auth.user.full_name || auth.user.username}</strong>
+                <span>{auth.user.role}</span>
+              </div>
+            ) : null}
             <StatusBar status={status} error={error} />
             <IconButton title="Làm mới" onClick={loadAll} disabled={busy}>
               {busy ? <Loader2 className="spin" size={18} /> : <RefreshCcw size={18} />}
+            </IconButton>
+            <IconButton title="Đăng xuất" onClick={handleLogout} disabled={busy}>
+              <LogOut size={18} />
             </IconButton>
           </div>
         </header>
@@ -670,19 +989,19 @@ function App() {
         {activeTab === 'directory' && (
           <div className="grid two">
             <Section icon={GraduationCap} title="Lớp học">
-              <form className="form-grid" onSubmit={saveClass}>
+              {canManageCatalog ? <form className="form-grid" onSubmit={saveClass}>
                 <Field label="Mã lớp"><input value={forms.class.class_code} onChange={(e) => updateForm('class', 'class_code', e.target.value)} required /></Field>
                 <Field label="Tên lớp"><input value={forms.class.class_name} onChange={(e) => updateForm('class', 'class_name', e.target.value)} required /></Field>
                 <Field label="Năm học"><input value={forms.class.school_year} onChange={(e) => updateForm('class', 'school_year', e.target.value)} /></Field>
                 <button className="primary" type="submit">{editingClassId ? <Save size={17} /> : <CirclePlus size={17} />} {editingClassId ? 'Lưu lớp' : 'Thêm lớp'}</button>
                 {editingClassId ? <button className="secondary" type="button" onClick={() => { setEditingClassId(null); setForms((current) => ({ ...current, class: emptyClass })) }}><X size={17} /> Hủy</button> : null}
-              </form>
+              </form> : null}
               <DataTable rows={data.classes} emptyText="Chưa có lớp" columns={[
                 { key: 'class_code', label: 'Mã' },
                 { key: 'class_name', label: 'Tên lớp' },
                 { key: 'school_year', label: 'Năm học' },
                 { key: 'status', label: 'Trạng thái', render: (row) => <Pill tone={row.status === 'ACTIVE' ? 'ok' : 'neutral'}>{row.status}</Pill> },
-                { key: 'actions', label: '', render: (row) => <div className="row-actions"><IconButton title="Xem sinh viên" onClick={() => loadClassDetail(row.id)}><Users size={16} /></IconButton><IconButton title="Sửa lớp" onClick={() => editClass(row)}><Pencil size={16} /></IconButton><IconButton title="Xóa lớp" onClick={() => deleteItem(`/api/classes/${row.id}`)}><Trash2 size={16} /></IconButton></div> },
+                { key: 'actions', label: '', render: (row) => <div className="row-actions"><IconButton title="Xem sinh viên" onClick={() => loadClassDetail(row.id)}><Users size={16} /></IconButton>{canManageCatalog ? <><IconButton title="Sửa lớp" onClick={() => editClass(row)}><Pencil size={16} /></IconButton><IconButton title="Xóa lớp" onClick={() => deleteItem(`/api/classes/${row.id}`)}><Trash2 size={16} /></IconButton></> : null}</div> },
               ]} />
             </Section>
 
@@ -706,24 +1025,24 @@ function App() {
             </Section>
 
             <Section icon={BookOpen} title="Môn học">
-              <form className="form-grid" onSubmit={saveCourse}>
+              {canManageCatalog ? <form className="form-grid" onSubmit={saveCourse}>
                 <Field label="Mã môn"><input value={forms.course.course_code} onChange={(e) => updateForm('course', 'course_code', e.target.value)} required /></Field>
                 <Field label="Tên môn"><input value={forms.course.course_name} onChange={(e) => updateForm('course', 'course_name', e.target.value)} required /></Field>
                 <Field label="Tín chỉ"><input type="number" value={forms.course.credits} onChange={(e) => updateForm('course', 'credits', e.target.value)} /></Field>
                 <button className="primary" type="submit">{editingCourseId ? <Save size={17} /> : <CirclePlus size={17} />} {editingCourseId ? 'Lưu môn' : 'Thêm môn'}</button>
                 {editingCourseId ? <button className="secondary" type="button" onClick={() => { setEditingCourseId(null); setForms((current) => ({ ...current, course: emptyCourse })) }}><X size={17} /> Hủy</button> : null}
-              </form>
+              </form> : null}
               <DataTable rows={data.courses} emptyText="Chưa có môn" columns={[
                 { key: 'course_code', label: 'Mã' },
                 { key: 'course_name', label: 'Tên môn' },
                 { key: 'credits', label: 'TC' },
                 { key: 'status', label: 'Trạng thái', render: (row) => <Pill tone={row.status === 'ACTIVE' ? 'ok' : 'neutral'}>{row.status}</Pill> },
-                { key: 'actions', label: '', render: (row) => <div className="row-actions"><IconButton title="Sửa môn" onClick={() => editCourse(row)}><Pencil size={16} /></IconButton><IconButton title="Xóa môn" onClick={() => deleteItem(`/api/courses/${row.id}`)}><Trash2 size={16} /></IconButton></div> },
+                { key: 'actions', label: '', render: (row) => canManageCatalog ? <div className="row-actions"><IconButton title="Sửa môn" onClick={() => editCourse(row)}><Pencil size={16} /></IconButton><IconButton title="Xóa môn" onClick={() => deleteItem(`/api/courses/${row.id}`)}><Trash2 size={16} /></IconButton></div> : null },
               ]} />
             </Section>
 
             <Section icon={Users} title="Sinh viên">
-              <form className="form-grid wide" onSubmit={(event) => {
+              {canManageCatalog ? <form className="form-grid wide" onSubmit={(event) => {
                 event.preventDefault()
                 submitJson('/api/students', { ...forms.student, class_id: forms.student.class_id ? Number(forms.student.class_id) : null }, 'student', emptyStudent)
               }}>
@@ -734,14 +1053,14 @@ function App() {
                 <Field label="Ngành"><input value={forms.student.major} onChange={(e) => updateForm('student', 'major', e.target.value)} placeholder="VD: CNTT" /></Field>
                 <Field label="Email"><input value={forms.student.email} onChange={(e) => updateForm('student', 'email', e.target.value)} /></Field>
                 <button className="primary" type="submit"><CirclePlus size={17} /> Thêm SV</button>
-              </form>
+              </form> : null}
               <div className="filter-row"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm mã, tên, lớp" /></div>
-              <div className="import-row">
+              {canManageCatalog ? <div className="import-row">
                 <input type="file" accept=".csv,text/csv" onChange={(e) => setStudentCsvFile(e.target.files?.[0] || null)} />
                 <button className="secondary" type="button" onClick={importStudentsCsv} disabled={!studentCsvFile}>
                   <ImageUp size={17} /> Import CSV
                 </button>
-              </div>
+              </div> : null}
               <DataTable rows={filteredStudents} emptyText="Chưa có sinh viên" columns={[
                 { key: 'student_code', label: 'Mã SV' },
                 { key: 'full_name', label: 'Họ tên' },
@@ -778,13 +1097,13 @@ function App() {
             </Section>
 
             <Section icon={Camera} title="Camera trong hệ thống">
-              <form className="form-grid" onSubmit={(event) => { event.preventDefault(); submitJson('/api/cameras', forms.camera, 'camera', emptyCamera) }}>
+              {canManageCatalog ? <form className="form-grid" onSubmit={(event) => { event.preventDefault(); submitJson('/api/cameras', forms.camera, 'camera', emptyCamera) }}>
                 <Field label="Mã camera"><input value={forms.camera.camera_code} onChange={(e) => updateForm('camera', 'camera_code', e.target.value)} required /></Field>
                 <Field label="Tên"><input value={forms.camera.name} onChange={(e) => updateForm('camera', 'name', e.target.value)} required /></Field>
                 <Field label="Vị trí"><input value={forms.camera.location} onChange={(e) => updateForm('camera', 'location', e.target.value)} /></Field>
                 <Field label="Stream URL"><input value={forms.camera.stream_url} onChange={(e) => updateForm('camera', 'stream_url', e.target.value)} /></Field>
                 <button className="primary" type="submit"><CirclePlus size={17} /> Thêm camera</button>
-              </form>
+              </form> : null}
               <DataTable rows={data.cameras} emptyText="Chưa có camera" columns={[
                 { key: 'camera_code', label: 'Mã' },
                 { key: 'name', label: 'Tên' },
@@ -798,18 +1117,25 @@ function App() {
         {activeTab === 'sessions' && (
           <div className="grid two">
             <Section icon={BookOpen} title="Gán lớp - môn">
-              <form className="form-grid" onSubmit={(event) => {
+              {canManageCatalog ? <form className="form-grid" onSubmit={(event) => {
                 event.preventDefault()
-                submitJson('/api/class-courses', { class_id: Number(forms.classCourse.class_id), course_id: Number(forms.classCourse.course_id), semester: forms.classCourse.semester }, 'classCourse', emptyClassCourse)
+                submitJson('/api/class-courses', {
+                  class_id: Number(forms.classCourse.class_id),
+                  course_id: Number(forms.classCourse.course_id),
+                  teacher_id: forms.classCourse.teacher_id ? Number(forms.classCourse.teacher_id) : null,
+                  semester: forms.classCourse.semester,
+                }, 'classCourse', emptyClassCourse)
               }}>
                 <Field label="Lớp"><select value={forms.classCourse.class_id} onChange={(e) => updateForm('classCourse', 'class_id', e.target.value)} required><option value="">Chọn lớp</option>{data.classes.map((item) => <option key={item.id} value={item.id}>{item.class_code}</option>)}</select></Field>
                 <Field label="Môn"><select value={forms.classCourse.course_id} onChange={(e) => updateForm('classCourse', 'course_id', e.target.value)} required><option value="">Chọn môn</option>{data.courses.map((item) => <option key={item.id} value={item.id}>{item.course_code}</option>)}</select></Field>
+                <Field label="Giảng viên chính"><select value={forms.classCourse.teacher_id} onChange={(e) => updateForm('classCourse', 'teacher_id', e.target.value)}><option value="">Chưa phân công</option>{teacherUsers.filter((item) => item.status === 'ACTIVE').map((item) => <option key={item.id} value={item.id}>{item.full_name} - {item.email || item.username}</option>)}</select></Field>
                 <Field label="Kỳ"><input value={forms.classCourse.semester} onChange={(e) => updateForm('classCourse', 'semester', e.target.value)} /></Field>
                 <button className="primary" type="submit"><CirclePlus size={17} /> Gán</button>
-              </form>
+              </form> : null}
               <DataTable rows={data.classCourses} emptyText="Chưa có lớp-môn" columns={[
                 { key: 'class', label: 'Lớp', render: (row) => row.class?.class_code },
                 { key: 'course', label: 'Môn', render: (row) => row.course?.course_code },
+                { key: 'teacher_id', label: 'Giảng viên', render: (row) => teacherName(row.teacher_id) },
                 { key: 'semester', label: 'Kỳ' },
                 { key: 'status', label: 'Trạng thái', render: (row) => <Pill tone="ok">{row.status}</Pill> },
               ]} />
@@ -970,6 +1296,80 @@ function App() {
                 })}
               </div>
             </Section>
+          </div>
+        )}
+
+        {activeTab === 'account' && (
+          <div className="grid two">
+            <Section icon={LockKeyhole} title="Đổi mật khẩu">
+              <form className="form-grid" onSubmit={changePassword}>
+                <Field label="Mật khẩu hiện tại">
+                  <input type="password" value={passwordForm.old_password} onChange={(e) => setPasswordForm((current) => ({ ...current, old_password: e.target.value }))} autoComplete="current-password" required />
+                </Field>
+                <Field label="Mật khẩu mới">
+                  <input type="password" value={passwordForm.new_password} onChange={(e) => setPasswordForm((current) => ({ ...current, new_password: e.target.value }))} autoComplete="new-password" required />
+                </Field>
+                <Field label="Nhập lại mật khẩu mới">
+                  <input type="password" value={passwordForm.confirm_password} onChange={(e) => setPasswordForm((current) => ({ ...current, confirm_password: e.target.value }))} autoComplete="new-password" required />
+                </Field>
+                <button className="primary" type="submit" disabled={busy}><Save size={17} /> Lưu mật khẩu</button>
+              </form>
+              {passwordMessage ? <div className="success-panel">{passwordMessage}</div> : null}
+            </Section>
+
+            {isAdmin ? (
+              <>
+                <Section icon={UserPlus} title="Tài khoản giảng viên">
+                  <div className="subject-status">
+                    <strong>{pendingTeachers.length}</strong>
+                    <span>tài khoản chờ duyệt</span>
+                    <strong>{teacherUsers.length}</strong>
+                    <span>giảng viên</span>
+                  </div>
+                  <DataTable rows={teacherUsers} emptyText="Chưa có tài khoản giảng viên" columns={[
+                    { key: 'full_name', label: 'Họ tên' },
+                    { key: 'email', label: 'Email trường', render: (row) => row.email || row.username },
+                    { key: 'status', label: 'Trạng thái', render: (row) => <Pill tone={row.status === 'ACTIVE' ? 'ok' : row.status === 'PENDING' ? 'warn' : 'neutral'}>{row.status}</Pill> },
+                    { key: 'last_login_at', label: 'Đăng nhập gần nhất', render: (row) => row.last_login_at ? new Date(row.last_login_at).toLocaleString() : 'Chưa có' },
+                    { key: 'actions', label: '', render: (row) => (
+                      <div className="row-actions">
+                        {row.status === 'PENDING' ? <button className="primary compact" type="button" onClick={() => approveTeacher(row.id)} disabled={busy}>Duyệt</button> : null}
+                        {row.status !== 'DISABLED' ? <button className="secondary compact" type="button" onClick={() => disableTeacher(row.id)} disabled={busy}>Khóa</button> : null}
+                      </div>
+                    ) },
+                  ]} />
+                </Section>
+
+                <Section icon={ShieldCheck} title="Phân công lớp tín chỉ">
+                  <form className="form-grid" onSubmit={createTeacherAssignment}>
+                    <Field label="Giảng viên">
+                      <select value={forms.teacherAssignment.teacher_id} onChange={(e) => updateForm('teacherAssignment', 'teacher_id', e.target.value)} required>
+                        <option value="">Chọn giảng viên</option>
+                        {teacherUsers.filter((item) => item.status === 'ACTIVE').map((item) => <option key={item.id} value={item.id}>{item.full_name} - {item.email || item.username}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Lớp tín chỉ">
+                      <select value={forms.teacherAssignment.class_course_id} onChange={(e) => updateForm('teacherAssignment', 'class_course_id', e.target.value)} required>
+                        <option value="">Chọn lớp tín chỉ</option>
+                        {data.classCourses.map((item) => <option key={item.id} value={item.id}>{classCourseLabel(item)}</option>)}
+                      </select>
+                    </Field>
+                    <button className="primary" type="submit" disabled={busy}><UserCheck size={17} /> Gán giảng viên</button>
+                  </form>
+                  <DataTable rows={data.teacherAssignments} emptyText="Chưa có phân công bổ sung" columns={[
+                    { key: 'teacher_id', label: 'Giảng viên', render: (row) => teacherName(row.teacher_id) },
+                    { key: 'class_id', label: 'Lớp', render: (row) => studyClassName(row.class_id) },
+                    { key: 'course_id', label: 'Môn', render: (row) => courseName(row.course_id) },
+                    { key: 'semester', label: 'Kỳ' },
+                    { key: 'created_at', label: 'Ngày tạo', render: (row) => new Date(row.created_at).toLocaleString() },
+                  ]} />
+                </Section>
+              </>
+            ) : (
+              <Section icon={ShieldCheck} title="Phạm vi tài khoản">
+                <div className="empty-panel">Giảng viên chỉ xem và điểm danh các lớp tín chỉ đã được admin phân công.</div>
+              </Section>
+            )}
           </div>
         )}
       </main>

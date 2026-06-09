@@ -8,9 +8,12 @@ from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from ..api.deps import get_current_user, require_roles
 from ..database import get_db
-from ..models import AttendanceLog, AttendanceSession, Student, StudyClass
+from ..models import AttendanceLog, AttendanceSession, Student, StudyClass, User
 from ..serializers import attendance_log_to_dict, student_to_dict
+from ..services.permission_service import PermissionService
+from ..utils.file_validation import validate_csv_upload
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -40,9 +43,15 @@ def list_students(
     class_id: int | None = None,
     q: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Student)
+    permission = PermissionService(db)
+    accessible_class_ids = permission.accessible_class_ids(current_user)
+    if accessible_class_ids is not None:
+        query = query.filter(Student.class_id.in_(accessible_class_ids))
     if class_id is not None:
+        permission.ensure_class(current_user, class_id)
         query = query.filter(Student.class_id == class_id)
     if q:
         pattern = f"%{q}%"
@@ -51,7 +60,7 @@ def list_students(
 
 
 @router.post("")
-def create_student(payload: StudentIn, db: Session = Depends(get_db)):
+def create_student(payload: StudentIn, db: Session = Depends(get_db), _: User = Depends(require_roles("ADMIN", "STAFF"))):
     item = Student(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -60,8 +69,13 @@ def create_student(payload: StudentIn, db: Session = Depends(get_db)):
 
 
 @router.post("/import-csv")
-async def import_students_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_students_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "STAFF")),
+):
     content = await file.read()
+    validate_csv_upload(file, content)
     text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
     created = 0
@@ -132,18 +146,26 @@ async def import_students_csv(file: UploadFile = File(...), db: Session = Depend
 
 
 @router.get("/{student_id}")
-def get_student(student_id: int, db: Session = Depends(get_db)):
+def get_student(student_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(Student, student_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")
+    if item.class_id:
+        PermissionService(db).ensure_class(current_user, item.class_id)
     return student_to_dict(item)
 
 
 @router.get("/{student_id}/attendance-summary")
-def get_student_attendance_summary(student_id: int, db: Session = Depends(get_db)):
+def get_student_attendance_summary(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     student = db.get(Student, student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
+    if student.class_id:
+        PermissionService(db).ensure_class(current_user, student.class_id)
 
     total_sessions = 0
     if student.class_id:
@@ -179,7 +201,12 @@ def get_student_attendance_summary(student_id: int, db: Session = Depends(get_db
 
 
 @router.put("/{student_id}")
-def update_student(student_id: int, payload: StudentUpdate, db: Session = Depends(get_db)):
+def update_student(
+    student_id: int,
+    payload: StudentUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "STAFF")),
+):
     item = db.get(Student, student_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -191,7 +218,7 @@ def update_student(student_id: int, payload: StudentUpdate, db: Session = Depend
 
 
 @router.delete("/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
+def delete_student(student_id: int, db: Session = Depends(get_db), _: User = Depends(require_roles("ADMIN", "STAFF"))):
     item = db.get(Student, student_id)
     if not item:
         raise HTTPException(status_code=404, detail="Student not found")

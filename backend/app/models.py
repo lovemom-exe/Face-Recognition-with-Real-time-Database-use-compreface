@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
     Float,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,11 +29,32 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    email: Mapped[str | None] = mapped_column(String(150), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    role: Mapped[str] = mapped_column(Enum("ADMIN", "TEACHER", name="user_role", native_enum=False), nullable=False, default="TEACHER")
-    status: Mapped[str] = mapped_column(Enum("ACTIVE", "DISABLED", name="user_status", native_enum=False), nullable=False, default="ACTIVE")
+    role: Mapped[str] = mapped_column(
+        Enum("ADMIN", "TEACHER", "STAFF", "STUDENT", name="user_role", native_enum=False),
+        nullable=False,
+        default="TEACHER",
+    )
+    status: Mapped[str] = mapped_column(Enum("PENDING", "ACTIVE", "DISABLED", name="user_status", native_enum=False), nullable=False, default="ACTIVE")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc, onupdate=now_utc)
+
+    class_courses: Mapped[list["ClassCourse"]] = relationship(back_populates="teacher", foreign_keys="ClassCourse.teacher_id")
+    teacher_assignments: Mapped[list["TeacherAssignment"]] = relationship(
+        back_populates="teacher",
+        foreign_keys="TeacherAssignment.teacher_id",
+    )
+
+    __table_args__ = (
+        Index("idx_users_role", "role"),
+        Index("idx_users_is_active", "is_active"),
+    )
 
 
 class StudyClass(Base):
@@ -99,12 +122,38 @@ class ClassCourse(Base):
 
     study_class: Mapped[StudyClass] = relationship(back_populates="class_courses")
     course: Mapped[Course] = relationship(back_populates="class_courses")
+    teacher: Mapped[User | None] = relationship(back_populates="class_courses", foreign_keys=[teacher_id])
     sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="class_course")
 
     __table_args__ = (
         UniqueConstraint("class_id", "course_id", "semester", name="uq_class_course_semester"),
         Index("idx_class_courses_class_id", "class_id"),
         Index("idx_class_courses_course_id", "course_id"),
+        Index("idx_class_courses_teacher_id", "teacher_id"),
+    )
+
+
+class TeacherAssignment(Base):
+    __tablename__ = "teacher_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    class_id: Mapped[int] = mapped_column(ForeignKey("study_classes.id", ondelete="CASCADE"), nullable=False)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
+    semester: Mapped[str] = mapped_column(String(30), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    teacher: Mapped[User] = relationship(back_populates="teacher_assignments", foreign_keys=[teacher_id])
+    study_class: Mapped[StudyClass] = relationship()
+    course: Mapped[Course | None] = relationship()
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by])
+
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "class_id", "course_id", "semester", name="uq_teacher_assignment_scope"),
+        Index("idx_teacher_assignments_teacher_id", "teacher_id"),
+        Index("idx_teacher_assignments_class_id", "class_id"),
+        Index("idx_teacher_assignments_course_id", "course_id"),
     )
 
 
@@ -279,4 +328,51 @@ class AttendanceLogAudit(Base):
         Index("idx_attendance_log_audits_session_id", "session_id"),
         Index("idx_attendance_log_audits_student_id", "student_id"),
         Index("idx_attendance_log_audits_changed_at", "changed_at"),
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    actor_role: Mapped[str | None] = mapped_column(String(30))
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(80))
+    old_value: Mapped[dict | None] = mapped_column(JSON)
+    new_value: Mapped[dict | None] = mapped_column(JSON)
+    reason: Mapped[str | None] = mapped_column(Text)
+    ip_address: Mapped[str | None] = mapped_column(String(100))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    request_id: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc)
+
+    actor: Mapped[User | None] = relationship(foreign_keys=[actor_user_id])
+
+    __table_args__ = (
+        Index("idx_audit_logs_actor_user_id", "actor_user_id"),
+        Index("idx_audit_logs_action", "action"),
+        Index("idx_audit_logs_resource", "resource_type", "resource_id"),
+        Index("idx_audit_logs_created_at", "created_at"),
+    )
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    value_type: Mapped[str] = mapped_column(Enum("string", "int", "float", "bool", "json", name="setting_value_type", native_enum=False), nullable=False, default="string")
+    description: Mapped[str | None] = mapped_column(Text)
+    is_sensitive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now_utc, onupdate=now_utc)
+
+    updater: Mapped[User | None] = relationship(foreign_keys=[updated_by])
+
+    __table_args__ = (
+        Index("idx_system_settings_key", "key"),
+        Index("idx_system_settings_updated_at", "updated_at"),
     )

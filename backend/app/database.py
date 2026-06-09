@@ -77,6 +77,21 @@ def _ensure_sqlite_columns() -> None:
             statements.append("UPDATE attendance_logs_mvp SET method = 'MANUAL' WHERE status = 'MANUAL'")
             statements.append("UPDATE attendance_logs_mvp SET method = 'AUTO_ABSENT' WHERE status = 'ABSENT'")
 
+    if "users" in table_names:
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "email" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN email VARCHAR(150)")
+        if "is_active" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1")
+        if "failed_login_count" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0")
+        if "locked_until" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN locked_until DATETIME")
+        if "last_login_at" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN last_login_at DATETIME")
+        if "updated_at" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN updated_at DATETIME")
+
     if not statements:
         return
 

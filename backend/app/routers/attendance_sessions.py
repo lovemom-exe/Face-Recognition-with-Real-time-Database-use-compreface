@@ -7,9 +7,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..attendance_services import AttendanceLogService, AttendanceSessionService, BusinessRuleError
+from ..api.deps import get_current_user
 from ..database import get_db
-from ..models import AttendanceLog, AttendanceSession
+from ..models import AttendanceLog, AttendanceSession, ClassCourse, User
 from ..serializers import attendance_log_to_dict, attendance_session_to_dict
+from ..services.permission_service import PermissionService
 
 router = APIRouter(prefix="/api/attendance-sessions", tags=["attendance sessions"])
 
@@ -44,16 +46,29 @@ def _raise_business_error(exc: BusinessRuleError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=exc.message)
 
 
+def _session_scope_query(db: Session, current_user: User):
+    query = db.query(AttendanceSession)
+    if current_user.role in {"ADMIN", "STAFF"}:
+        return query
+    assigned_class_ids = [assignment.class_id for assignment in current_user.teacher_assignments]
+    return query.join(AttendanceSession.class_course).filter(
+        (ClassCourse.teacher_id == current_user.id) | (ClassCourse.class_id.in_(assigned_class_ids))
+    )
+
+
 @router.get("")
-def list_sessions(db: Session = Depends(get_db)):
-    return [attendance_session_to_dict(item) for item in db.query(AttendanceSession).order_by(AttendanceSession.start_time.desc()).all()]
+def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return [
+        attendance_session_to_dict(item)
+        for item in _session_scope_query(db, current_user).order_by(AttendanceSession.start_time.desc()).all()
+    ]
 
 
 @router.get("/open")
-def list_open_sessions(db: Session = Depends(get_db)):
+def list_open_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return [
         attendance_session_to_dict(item)
-        for item in db.query(AttendanceSession)
+        for item in _session_scope_query(db, current_user)
         .filter(AttendanceSession.status == "OPEN")
         .order_by(AttendanceSession.start_time.desc())
         .all()
@@ -61,8 +76,11 @@ def list_open_sessions(db: Session = Depends(get_db)):
 
 
 @router.post("")
-def create_session(payload: AttendanceSessionIn, db: Session = Depends(get_db)):
-    item = AttendanceSession(**payload.model_dump())
+def create_session(payload: AttendanceSessionIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    PermissionService(db).ensure_class_course(current_user, payload.class_course_id)
+    data = payload.model_dump()
+    data["created_by"] = current_user.id
+    item = AttendanceSession(**data)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -70,18 +88,20 @@ def create_session(payload: AttendanceSessionIn, db: Session = Depends(get_db)):
 
 
 @router.get("/{session_id}")
-def get_session(session_id: int, db: Session = Depends(get_db)):
+def get_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(AttendanceSession, session_id)
     if not item:
         raise HTTPException(status_code=404, detail="Attendance session not found")
+    PermissionService(db).ensure_class_course(current_user, item.class_course_id)
     return attendance_session_to_dict(item)
 
 
 @router.put("/{session_id}")
-def update_session(session_id: int, payload: AttendanceSessionUpdate, db: Session = Depends(get_db)):
+def update_session(session_id: int, payload: AttendanceSessionUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(AttendanceSession, session_id)
     if not item:
         raise HTTPException(status_code=404, detail="Attendance session not found")
+    PermissionService(db).ensure_class_course(current_user, item.class_course_id)
     updates = payload.model_dump(exclude_unset=True)
     next_status = updates.pop("status", None)
     if next_status is not None and next_status != item.status:
@@ -94,50 +114,56 @@ def update_session(session_id: int, payload: AttendanceSessionUpdate, db: Sessio
 
 
 @router.post("/{session_id}/open")
-def open_session(session_id: int, db: Session = Depends(get_db)):
+def open_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).open(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.post("/{session_id}/close")
-def close_session(session_id: int, db: Session = Depends(get_db)):
+def close_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).close(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.post("/{session_id}/lock")
-def lock_session(session_id: int, db: Session = Depends(get_db)):
+def lock_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).lock(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.post("/{session_id}/reopen")
-def reopen_session(session_id: int, db: Session = Depends(get_db)):
+def reopen_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).reopen(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.post("/{session_id}/cancel")
-def cancel_session(session_id: int, db: Session = Depends(get_db)):
+def cancel_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).cancel(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.get("/{session_id}/results")
-def session_results(session_id: int, db: Session = Depends(get_db)):
+def session_results(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(AttendanceSession, session_id)
     if not item:
         raise HTTPException(status_code=404, detail="Attendance session not found")
+    PermissionService(db).ensure_class_course(current_user, item.class_course_id)
     return {
         "session": attendance_session_to_dict(item),
         "attendance_logs": [attendance_log_to_dict(log) for log in item.attendance_logs],
@@ -145,22 +171,24 @@ def session_results(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{session_id}/roster")
-def session_roster(session_id: int, db: Session = Depends(get_db)):
+def session_roster(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).roster(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)
 
 
 @router.post("/{session_id}/manual-attendance")
-def manual_attendance(session_id: int, payload: ManualAttendanceIn, db: Session = Depends(get_db)):
+def manual_attendance(session_id: int, payload: ManualAttendanceIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceLogService(db).manual_attendance(
             session_id=session_id,
             student_id=payload.student_id,
             status=payload.status,
             note=payload.note,
-            actor_id=payload.actor_id,
+            actor_id=current_user.id,
             camera_id=payload.camera_id,
         )
     except BusinessRuleError as exc:
@@ -168,8 +196,9 @@ def manual_attendance(session_id: int, payload: ManualAttendanceIn, db: Session 
 
 
 @router.get("/{session_id}/audits")
-def session_audits(session_id: int, db: Session = Depends(get_db)):
+def session_audits(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        PermissionService(db).ensure_session(current_user, session_id)
         return AttendanceSessionService(db).audits(session_id)
     except BusinessRuleError as exc:
         _raise_business_error(exc)

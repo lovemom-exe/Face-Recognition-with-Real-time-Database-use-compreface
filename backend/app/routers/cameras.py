@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..api.deps import require_roles
 from ..database import get_db
-from ..models import Camera
+from ..models import Camera, User
 from ..serializers import camera_to_dict
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
@@ -33,7 +34,7 @@ def list_cameras(db: Session = Depends(get_db)):
 
 
 @router.post("")
-def create_camera(payload: CameraIn, db: Session = Depends(get_db)):
+def create_camera(payload: CameraIn, db: Session = Depends(get_db), _: User = Depends(require_roles("ADMIN", "STAFF"))):
     item = Camera(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -50,7 +51,12 @@ def get_camera(camera_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{camera_id}")
-def update_camera(camera_id: int, payload: CameraUpdate, db: Session = Depends(get_db)):
+def update_camera(
+    camera_id: int,
+    payload: CameraUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "STAFF")),
+):
     item = db.get(Camera, camera_id)
     if not item:
         raise HTTPException(status_code=404, detail="Camera not found")
