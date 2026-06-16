@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> NOT_RECORDED: Chưa có log
+    NOT_RECORDED --> ON_TIME: Confirm đúng giờ
+    NOT_RECORDED --> LATE: Confirm sau ngưỡng muộn
+    NOT_RECORDED --> ABSENT: Auto absent khi close session
+    NOT_RECORDED --> EXCUSED: Sửa thủ công
+    ON_TIME --> EXCUSED: Sửa thủ công
+    LATE --> EXCUSED: Sửa thủ công
+    ABSENT --> ON_TIME: Sửa thủ công
+    ABSENT --> LATE: Sửa thủ công
+    ON_TIME --> INVALID: Đánh dấu không hợp lệ
+    LATE --> INVALID: Đánh dấu không hợp lệ
+    ABSENT --> INVALID: Đánh dấu không hợp lệ

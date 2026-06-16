@@ -1,0 +1,44 @@
+flowchart LR
+    Admin["Admin"]
+    Teacher["Teacher"]
+    Student["Student"]
+    Camera["Camera/Webcam"]
+    AI["CompreFace Service"]
+
+    subgraph System["Hệ thống điểm danh khuôn mặt"]
+        UC1(("Đăng ký tài khoản giảng viên"))
+        UC2(("Duyệt tài khoản giảng viên"))
+        UC3(("Quản lý sinh viên"))
+        UC4(("Quản lý lớp học"))
+        UC5(("Quản lý môn học"))
+        UC6(("Tạo lớp tín chỉ"))
+        UC7(("Phân công giảng viên"))
+        UC8(("Map hồ sơ khuôn mặt"))
+        UC9(("Tạo/mở buổi điểm danh"))
+        UC10(("Bật camera"))
+        UC11(("Nhận diện sinh viên"))
+        UC12(("Xác nhận điểm danh"))
+        UC13(("Đóng buổi điểm danh"))
+        UC14(("Xem báo cáo điểm danh"))
+        UC15(("Quản trị cấu hình hệ thống"))
+    end
+
+    Teacher --> UC1
+    Admin --> UC2
+    Admin --> UC3
+    Admin --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    Teacher --> UC9
+    Teacher --> UC10
+    Teacher --> UC12
+    Teacher --> UC13
+    Teacher --> UC14
+    Admin --> UC14
+    Admin --> UC15
+    Student --> UC11
+    Camera --> UC10
+    Camera --> UC11
+    UC11 --> AI

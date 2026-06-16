@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor Admin as Admin
+    participant UI as Frontend
+    participant CourseAPI as ClassCourse API
+    participant AssignAPI as TeacherAssignment API
+    participant Permission as PermissionService
+    participant DB as Database
+
+    Admin->>UI: Chọn lớp, môn, kỳ học và giảng viên chính
+    UI->>CourseAPI: POST /api/class-courses
+    CourseAPI->>DB: Tạo ClassCourse
+    CourseAPI-->>UI: Lớp tín chỉ đã tạo
+    opt Phân công bổ sung
+        UI->>AssignAPI: POST /api/v1/teacher-assignments
+        AssignAPI->>DB: Tạo TeacherAssignment
+        AssignAPI-->>UI: Phân công thành công
+    end
+    Permission->>DB: Đọc phạm vi lớp của giảng viên
+    Permission-->>UI: Chỉ hiển thị dữ liệu được phân công

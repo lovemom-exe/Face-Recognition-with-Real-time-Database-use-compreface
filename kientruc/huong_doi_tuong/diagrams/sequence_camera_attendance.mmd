@@ -1,0 +1,20 @@
+sequenceDiagram
+    actor Teacher as Giảng viên
+    participant UI as Trạm camera
+    participant API as Recognition API
+    participant Permission as PermissionService
+    participant Service as RecognitionService
+    participant AI as CompreFaceClient
+    participant DB as Database
+
+    Teacher->>UI: Bật camera và bắt đầu quét
+    UI->>API: POST /api/recognition/image
+    API->>Permission: ensure_session(user, session_id)
+    Permission-->>API: Hợp lệ
+    API->>Service: recognize_image(frame)
+    Service->>AI: recognize(frame)
+    AI-->>Service: subject, similarity, box
+    Service->>DB: Tạo RecognitionEvent
+    Service->>DB: Tìm FaceProfile và Student
+    Service->>DB: Kiểm tra thuộc lớp session
+    Service-->>UI: MATCHED_IN_CLASS hoặc trạng thái cảnh báo

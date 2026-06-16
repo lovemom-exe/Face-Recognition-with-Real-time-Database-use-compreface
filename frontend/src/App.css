@@ -6,6 +6,92 @@
   color: #20242c;
 }
 
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f6f7f9;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 34px rgba(19, 31, 49, 0.08);
+}
+
+.login-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #2d6cdf;
+  color: #ffffff;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.login-card p {
+  margin: -6px 0 2px;
+  color: #667085;
+}
+
+.login-error {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #f4b8b8;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #fff4f4;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.login-success,
+.success-panel {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #b7e2c8;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #f0fbf4;
+  color: #146c43;
+  font-size: 13px;
+}
+
+.success-panel {
+  margin: 14px;
+}
+
+.login-button {
+  width: 100%;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #2d6cdf;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -107,6 +193,35 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.user-chip {
+  min-height: 38px;
+  display: grid;
+  align-content: center;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.user-chip strong,
+.user-chip span {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-chip strong {
+  color: #20242c;
+  font-size: 13px;
+}
+
+.user-chip span {
+  color: #667085;
+  font-size: 11px;
 }
 
 .status-bar {
@@ -730,7 +845,7 @@ tr:last-child td {
   }
 
   .sidebar nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .sidebar button {

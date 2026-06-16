@@ -1,0 +1,15 @@
+sequenceDiagram
+    actor Admin as Admin
+    participant UI as Frontend
+    participant FaceAPI as Face Profile API
+    participant CompreFace as CompreFaceClient
+    participant DB as Database
+
+    Admin->>UI: Chọn sinh viên và subject
+    UI->>FaceAPI: POST /api/students/{student_id}/face-profile
+    FaceAPI->>DB: Kiểm tra sinh viên tồn tại
+    FaceAPI->>CompreFace: Kiểm tra subject
+    CompreFace-->>FaceAPI: Subject hợp lệ
+    FaceAPI->>DB: Kiểm tra subject chưa map
+    FaceAPI->>DB: Tạo/cập nhật FaceProfile
+    FaceAPI-->>UI: Hồ sơ đã map

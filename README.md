@@ -47,7 +47,7 @@ flowchart LR
 |---|---|---|
 | Frontend Web | `frontend/src/App.jsx`, `frontend/src/App.css` | UI quan ly sinh vien, lop, mon, ho so khuon mat, buoi diem danh va tram camera |
 | Backend API | `backend/app/main.py`, `backend/app/routers/` | REST API cho frontend; khong de frontend goi truc tiep CompreFace |
-| Backend Domain/Data | `backend/app/services.py`, `backend/app/models.py`, `backend/app/database.py`, `backend/app/serializers.py` | Xu ly nghiep vu, ORM model, DB session, serialize response |
+| Backend Domain/Data | `backend/app/services/`, `backend/app/legacy_services.py`, `backend/app/models.py`, `backend/app/database.py`, `backend/app/serializers.py` | Xu ly nghiep vu, ORM model, DB session, serialize response |
 | CompreFace integration | `backend/app/compreface_client.py`, `CompreFace_BachKhoa/docker-compose.yml` | Goi API CompreFace, list subject, create subject, upload face, recognize image |
 | Test/utility scripts | `scripts/` | Smoke test CompreFace va danh gia dataset |
 | Tai lieu thiet ke | `kientruc/` | ERD, DFD, FDD, kien truc tong the, Mermaid diagrams |
@@ -118,7 +118,8 @@ Rang buoc quan trong:
 |   |-- app/
 |   |   |-- main.py
 |   |   |-- models.py
-|   |   |-- services.py
+|   |   |-- legacy_services.py
+|   |   |-- services/
 |   |   |-- compreface_client.py
 |   |   |-- database.py
 |   |   |-- serializers.py
@@ -198,8 +199,9 @@ cd <repo>
 python -m venv .venv
 .\.venv\Scripts\pip.exe install -r requirements.txt
 $env:COMPREFACE_BASE_URL="http://localhost:8000"
-$env:COMPREFACE_RECOGNITION_API_KEY="your-recognition-api-key"
+$env:COMPREFACE_API_KEY="your-recognition-api-key"
 $env:ATTENDANCE_RECOGNITION_THRESHOLD="0.97"
+.\.venv\Scripts\alembic.exe upgrade head
 .\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8080
 ```
 
@@ -209,7 +211,13 @@ Backend docs:
 http://127.0.0.1:8080/docs
 ```
 
-Ghi chu: SQLite database `backend_attendance.db` se duoc tao local khi backend start. File DB khong duoc commit.
+Tao admin dau tien:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\create_admin.py --username admin --email admin@example.com --full-name "System Admin"
+```
+
+Ghi chu: tu Phase 3, cac API nghiep vu yeu cau dang nhap JWT. Frontend co man login va tu gan `Authorization: Bearer <token>`.
 
 ### 5. Chay frontend
 
@@ -227,7 +235,7 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
-Neu can doi API backend:
+Vite da proxy `/api` sang backend `http://127.0.0.1:8080`. Neu can doi API backend:
 
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8080 npm run dev

@@ -481,6 +481,8 @@ class AttendanceLogService:
         changed = (old_status != next_status) or (old_note != next_note) or (old_method != next_method)
         if not changed:
             return None, False
+        if log.session and log.session.status == SESSION_CLOSED and not (reason or "").strip():
+            raise BusinessRuleError("REASON_REQUIRED", "Can nhap ly do khi sua log cua buoi da dong.", status_code=400)
 
         log.status = next_status
         log.note = next_note

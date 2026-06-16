@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> PENDING: Tạo profile
+    PENDING --> ACTIVE: Map subject/enroll đủ mẫu
+    ACTIVE --> RETRAIN_REQUIRED: Nhận diện kém
+    RETRAIN_REQUIRED --> ACTIVE: Enroll lại
+    ACTIVE --> DISABLED: Khóa hồ sơ
+    DISABLED --> ACTIVE: Mở lại

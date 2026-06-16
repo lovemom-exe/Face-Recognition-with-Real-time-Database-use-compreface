@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph Frontend["Frontend React"]
+        UI["UI Pages/Components"]
+        CameraStation["Camera Station"]
+        ApiClient["API Client"]
+    end
+
+    subgraph Backend["Backend FastAPI"]
+        Routers["API Routers"]
+        Auth["Auth/RBAC"]
+        Services["Application Services"]
+        Repositories["Repositories"]
+        Config["Config/Settings"]
+        CompreFaceClient["CompreFace Client"]
+    end
+
+    subgraph Storage["Storage"]
+        DB[("PostgreSQL/SQLite")]
+        FaceStore[("CompreFace Face Store")]
+    end
+
+    subgraph External["External Services"]
+        CompreFace["CompreFace API"]
+        Webcam["Webcam/Camera"]
+    end
+
+    Webcam --> CameraStation
+    CameraStation --> ApiClient
+    UI --> ApiClient
+    ApiClient --> Routers
+    Routers --> Auth
+    Routers --> Services
+    Services --> Repositories
+    Repositories --> DB
+    Services --> CompreFaceClient
+    CompreFaceClient --> CompreFace
+    CompreFace --> FaceStore
+    Config --> Services

@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor Teacher as Giảng viên
+    participant UI as Frontend
+    participant API as Recognition API
+    participant LogService as AttendanceLogService
+    participant DB as Database
+
+    Teacher->>UI: Bấm Đúng sinh viên này
+    UI->>API: POST /api/recognition/confirm
+    API->>LogService: confirm_attendance()
+    LogService->>DB: Kiểm tra session OPEN
+    LogService->>DB: Kiểm tra sinh viên thuộc lớp
+    LogService->>DB: Kiểm tra log trùng
+    alt Đã có log
+        LogService-->>UI: ALREADY_ATTENDED
+    else Hợp lệ
+        LogService->>DB: Tạo AttendanceLog method FACE
+        LogService-->>UI: CONFIRMED
+    end
