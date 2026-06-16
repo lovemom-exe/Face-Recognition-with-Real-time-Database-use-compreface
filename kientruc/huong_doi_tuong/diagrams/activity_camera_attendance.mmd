@@ -1,0 +1,23 @@
+flowchart TD
+    A([Bắt đầu]) --> B[Chọn session OPEN]
+    B --> C[Bật camera]
+    C --> D[Gửi frame lên backend]
+    D --> E[Gọi CompreFace recognize]
+    E --> F{Có subject?}
+    F -- Không --> G[UNKNOWN]
+    F -- Có --> H{Similarity đủ ngưỡng?}
+    H -- Không --> I[LOW_CONFIDENCE]
+    H -- Có --> J{Subject đã map?}
+    J -- Không --> K[UNMAPPED_SUBJECT]
+    J -- Có --> L{Sinh viên thuộc lớp?}
+    L -- Không --> M[MATCHED_OUT_OF_CLASS]
+    L -- Có --> N[MATCHED_IN_CLASS]
+    N --> O{Giảng viên xác nhận?}
+    O -- Có --> P[Tạo AttendanceLog]
+    O -- Không --> Q[Bỏ qua]
+    G --> Z([Kết thúc lượt quét])
+    I --> Z
+    K --> Z
+    M --> Z
+    P --> Z
+    Q --> Z

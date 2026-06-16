@@ -1,0 +1,20 @@
+sequenceDiagram
+    actor Teacher as Giảng viên
+    participant UI as Frontend
+    participant API as Attendance Session API
+    participant Service as AttendanceSessionService
+    participant DB as Database
+
+    Teacher->>UI: Đóng buổi điểm danh
+    UI->>API: POST /api/attendance-sessions/{id}/close
+    API->>Service: close(session_id)
+    Service->>DB: Lấy session và roster
+    alt OPEN
+        Service->>DB: Tạo ABSENT/AUTO_ABSENT cho sinh viên chưa có log
+        Service->>DB: Chuyển CLOSED
+        Service-->>UI: Summary
+    else CLOSED
+        Service-->>UI: Summary hiện tại
+    else LOCKED/CANCELLED
+        Service-->>UI: Lỗi nghiệp vụ
+    end

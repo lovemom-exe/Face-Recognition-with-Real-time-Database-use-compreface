@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> DRAFT: Tạo session
+    DRAFT --> OPEN: Mở điểm danh
+    DRAFT --> CANCELLED: Hủy
+    OPEN --> CLOSED: Đóng session
+    CLOSED --> OPEN: Reopen
+    CLOSED --> LOCKED: Khóa/chốt
+    LOCKED --> [*]
+    CANCELLED --> [*]

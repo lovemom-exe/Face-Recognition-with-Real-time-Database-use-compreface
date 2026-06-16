@@ -22,6 +22,18 @@ Folder nay gom bo tai lieu phan tich lai he thong diem danh bang nhan dien khuon
 | `03_bieu_do_fdd.md` | Bieu do phan cap chuc nang FDD va ma tran chuc nang-du lieu |
 | `04_bieu_do_dfd.md` | DFD muc ngu canh, muc 0 va muc 1 cho luong nhan dien-diem danh |
 | `diagrams/*.mmd` | File Mermaid tach rieng de render hoac dua vao bao cao |
+| `huong_doi_tuong/` | Bo tai lieu OOAD/UML: use case, class, sequence, activity, state va package/component |
+
+## Bo sung phan tich huong doi tuong
+
+Ben canh FDD, DFD va ERD theo huong cau truc, folder `huong_doi_tuong/` mo ta he thong theo huong doi tuong:
+
+- **Use case diagram**: actor va muc tieu su dung he thong.
+- **Class diagram**: entity, service, repository va integration class.
+- **Sequence diagram**: thu tu tuong tac trong cac luong nghiep vu chinh.
+- **Activity diagram**: quy trinh xu ly va cac nhanh dieu kien.
+- **State diagram**: vong doi trang thai cua `User`, `AttendanceSession`, `FaceProfile`, `AttendanceLog`.
+- **Package/component diagram**: cach chia module frontend, backend, database va CompreFace.
 
 ## Huong thiet ke lai
 

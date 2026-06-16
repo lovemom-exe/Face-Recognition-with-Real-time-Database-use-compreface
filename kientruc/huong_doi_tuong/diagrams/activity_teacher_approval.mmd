@@ -1,0 +1,15 @@
+flowchart TD
+    A([Bắt đầu]) --> B[Giảng viên nhập form đăng ký]
+    B --> C{Email thuộc domain trường?}
+    C -- Không --> D[Thông báo lỗi]
+    C -- Có --> E{Email đã tồn tại?}
+    E -- Có --> F[Thông báo email đã đăng ký]
+    E -- Không --> G[Tạo User TEACHER/PENDING]
+    G --> H[Admin xem danh sách PENDING]
+    H --> I{Admin duyệt?}
+    I -- Có --> J[Chuyển ACTIVE]
+    I -- Không --> K[Giữ PENDING hoặc DISABLED]
+    J --> Z([Kết thúc])
+    K --> Z
+    D --> Z
+    F --> Z

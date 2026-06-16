@@ -1,0 +1,68 @@
+classDiagram
+    class User {
+        +int id
+        +string username
+        +string email
+        +string full_name
+        +string role
+        +string status
+    }
+    class Student {
+        +int id
+        +string student_code
+        +string full_name
+        +string cohort
+        +string major
+    }
+    class StudyClass
+    class Course
+    class ClassCourse
+    class FaceProfile {
+        +string compreface_subject
+        +int sample_count
+        +string status
+    }
+    class AttendanceSession {
+        +string session_name
+        +datetime start_time
+        +string status
+    }
+    class RecognitionEvent {
+        +string subject
+        +float similarity
+        +string result_type
+    }
+    class AttendanceLog {
+        +string status
+        +string method
+        +float similarity
+    }
+    class AttendanceLogAudit
+    class Camera
+    class AuthService
+    class PermissionService
+    class RecognitionService
+    class AttendanceSessionService
+    class AttendanceLogService
+    class ReportService
+    class CompreFaceClient
+    class UserRepository
+    class TeacherAssignmentRepository
+
+    StudyClass "1" --> "0..*" Student
+    StudyClass "1" --> "0..*" ClassCourse
+    Course "1" --> "0..*" ClassCourse
+    User "1" --> "0..*" ClassCourse
+    ClassCourse "1" --> "0..*" AttendanceSession
+    Student "1" --> "0..1" FaceProfile
+    Student "1" --> "0..*" AttendanceLog
+    AttendanceSession "1" --> "0..*" RecognitionEvent
+    AttendanceSession "1" --> "0..*" AttendanceLog
+    Camera "1" --> "0..*" RecognitionEvent
+    FaceProfile "1" --> "0..*" RecognitionEvent
+    RecognitionEvent "0..1" --> "0..1" AttendanceLog
+    AttendanceLog "1" --> "0..*" AttendanceLogAudit
+    AuthService ..> UserRepository
+    RecognitionService ..> CompreFaceClient
+    AttendanceLogService ..> AttendanceLog
+    ReportService ..> AttendanceLog

@@ -1,0 +1,22 @@
+sequenceDiagram
+    actor Teacher as Giảng viên
+    actor Admin as Admin
+    participant UI as Frontend
+    participant AuthAPI as Auth API
+    participant AuthService as AuthService
+    participant UserRepo as UserRepository
+    participant DB as Database
+    participant UserAPI as User API
+    participant UserService as UserService
+
+    Teacher->>UI: Nhập họ tên, email trường, mật khẩu
+    UI->>AuthAPI: POST /api/v1/auth/register-teacher
+    AuthAPI->>AuthService: register_teacher(payload)
+    AuthService->>UserRepo: Kiểm tra email trùng
+    AuthService->>DB: Tạo User TEACHER/PENDING
+    AuthService-->>UI: Tài khoản chờ duyệt
+    Admin->>UI: Mở danh sách giảng viên PENDING
+    UI->>UserAPI: POST /api/v1/users/{id}/approve
+    UserAPI->>UserService: approve_teacher(id)
+    UserService->>DB: Cập nhật ACTIVE
+    UserService-->>UI: Duyệt thành công

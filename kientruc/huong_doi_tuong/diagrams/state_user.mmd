@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> PENDING: Giảng viên đăng ký
+    PENDING --> ACTIVE: Admin duyệt
+    PENDING --> DISABLED: Admin khóa/từ chối
+    ACTIVE --> DISABLED: Admin khóa
+    DISABLED --> ACTIVE: Admin mở lại
+    ACTIVE --> [*]
